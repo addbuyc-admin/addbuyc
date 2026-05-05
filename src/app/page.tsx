@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { PostCard } from "@/components/PostCard";
 import { usePosts } from "@/context/PostsProvider";
 
 export default function HomePage() {
-  const { posts, ready, likePost } = usePosts();
+  const { posts, ready } = usePosts();
 
   const sorted = [...posts].sort(
     (a, b) =>
@@ -36,11 +35,11 @@ export default function HomePage() {
       </div>
 
       {!ready ? (
-        <ul className="flex flex-col gap-6">
+        <ul className="flex flex-col gap-4">
           {[1, 2, 3].map((i) => (
             <li
               key={i}
-              className="h-48 animate-pulse rounded-2xl bg-zinc-100"
+              className="h-20 animate-pulse rounded-2xl bg-zinc-100"
             />
           ))}
         </ul>
@@ -55,10 +54,29 @@ export default function HomePage() {
           </Link>
         </div>
       ) : (
-        <ul className="flex flex-col gap-6">
+        <ul className="flex flex-col gap-3">
           {sorted.map((post) => (
-            <li key={post.id}>
-              <PostCard post={post} onLike={likePost} />
+            <li
+              key={post.id}
+              className="rounded-2xl border border-zinc-200 bg-white px-5 py-4 shadow-sm transition hover:shadow-md"
+            >
+              <Link
+                href={`/posts/${post.id}`}
+                className="text-lg font-semibold tracking-tight text-zinc-900 underline-offset-4 hover:underline"
+              >
+                {post.title}
+              </Link>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
+                <time dateTime={post.createdAt}>
+                  {new Date(post.createdAt).toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </time>
+                <span aria-hidden>•</span>
+                <span>Likes: {post.likes}</span>
+              </div>
             </li>
           ))}
         </ul>
