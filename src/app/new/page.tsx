@@ -13,6 +13,7 @@ export default function NewPostPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFileName, setImageFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const submitLock = useRef(false);
 
   const onFileChange = useCallback(
@@ -53,7 +54,7 @@ export default function NewPostPage() {
     setError(null);
   }, []);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     const t = title.trim();
@@ -64,12 +65,19 @@ export default function NewPostPage() {
     }
     if (submitLock.current) return;
     submitLock.current = true;
-    addPost({
-      title: t,
-      description: d,
-      imageUrl: imagePreview,
-    });
-    router.push("/");
+    setSubmitting(true);
+    try {
+      await addPost({
+        title: t,
+        description: d,
+        imageUrl: imagePreview,
+      });
+      router.push("/");
+    } catch {
+      setError("Failed to publish post. Please check Supabase settings.");
+      submitLock.current = false;
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -85,8 +93,8 @@ export default function NewPostPage() {
           New post
         </h1>
         <p className="mt-2 text-[15px] text-zinc-500">
-          Add a title, details, and optionally an image. Posts are saved in your
-          browser for this demo.
+          Add a title, details, and optionally an image. Posts are saved to
+          Supabase.
         </p>
       </div>
 
@@ -184,9 +192,10 @@ export default function NewPostPage() {
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <button
             type="submit"
+            disabled={submitting}
             className="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
           >
-            Publish post
+            {submitting ? "Publishing..." : "Publish post"}
           </button>
           <Link
             href="/"
