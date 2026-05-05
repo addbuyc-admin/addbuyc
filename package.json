@@ -12,6 +12,7 @@
     "node": ">=20.19.0 || ^22.13.0 || >=24"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.3",
     "next": "^15.3.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

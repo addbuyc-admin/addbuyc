@@ -10,71 +10,105 @@ import {
   type ReactNode,
 } from "react";
 import type { Post } from "@/lib/types";
-import { SEED_POSTS } from "@/lib/seed-posts";
-
-const STORAGE_KEY = "addbuy-c-posts";
+import { supabase } from "@/lib/supabase/client";
 
 type PostsContextValue = {
   posts: Post[];
   ready: boolean;
-  addPost: (input: Omit<Post, "id" | "createdAt" | "likes">) => void;
-  likePost: (id: string) => void;
+  addPost: (input: Omit<Post, "id" | "createdAt" | "likes">) => Promise<void>;
+  likePost: (id: string) => Promise<void>;
 };
 
 const PostsContext = createContext<PostsContextValue | null>(null);
 
-function loadInitial(): Post[] {
-  if (typeof window === "undefined") return SEED_POSTS;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return SEED_POSTS;
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return SEED_POSTS;
-    return parsed as Post[];
-  } catch {
-    return SEED_POSTS;
-  }
+type PostRow = {
+  id: string;
+  title: string;
+  description: string;
+  image_url: string | null;
+  likes: number;
+  created_at: string;
+};
+
+function mapRowToPost(row: PostRow): Post {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    imageUrl: row.image_url,
+    likes: row.likes,
+    createdAt: row.created_at,
+  };
 }
 
 export function PostsProvider({ children }: { children: ReactNode }) {
-  const [posts, setPosts] = useState<Post[]>(SEED_POSTS);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [ready, setReady] = useState(false);
 
-  useEffect(() => {
-    setPosts(loadInitial());
-    setReady(true);
+  const fetchPosts = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("posts")
+      .select("id, title, description, image_url, likes, created_at")
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("Failed to load posts:", error.message);
+      setPosts([]);
+      return;
+    }
+    const mapped = (data ?? []).map((row) => mapRowToPost(row as PostRow));
+    setPosts(mapped);
   }, []);
 
   useEffect(() => {
-    if (!ready) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
-    } catch {
-      // quota exceeded or private mode — still allow in-memory use
-    }
-  }, [posts, ready]);
+    let mounted = true;
+    void (async () => {
+      await fetchPosts();
+      if (mounted) setReady(true);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [fetchPosts]);
 
   const addPost = useCallback(
-    (input: Omit<Post, "id" | "createdAt" | "likes">) => {
-      const newPost: Post = {
-        ...input,
-        id:
-          typeof crypto !== "undefined" && crypto.randomUUID
-            ? crypto.randomUUID()
-            : `post-${Date.now()}`,
-        likes: 0,
-        createdAt: new Date().toISOString(),
-      };
-      setPosts((prev) => [newPost, ...prev]);
+    async (input: Omit<Post, "id" | "createdAt" | "likes">) => {
+      const { data, error } = await supabase
+        .from("posts")
+        .insert({
+          title: input.title,
+          description: input.description,
+          image_url: input.imageUrl,
+          likes: 0,
+        })
+        .select("id, title, description, image_url, likes, created_at")
+        .single();
+      if (error) {
+        console.error("Failed to create post:", error.message);
+        throw new Error("Failed to create post");
+      }
+      setPosts((prev) => [mapRowToPost(data as PostRow), ...prev]);
     },
     [],
   );
 
-  const likePost = useCallback((id: string) => {
+  const likePost = useCallback(async (id: string) => {
+    const target = posts.find((p) => p.id === id);
+    if (!target) return;
+    const nextLikes = target.likes + 1;
     setPosts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, likes: p.likes + 1 } : p)),
+      prev.map((p) => (p.id === id ? { ...p, likes: nextLikes } : p)),
     );
-  }, []);
+    const { error } = await supabase
+      .from("posts")
+      .update({ likes: nextLikes })
+      .eq("id", id);
+    if (error) {
+      console.error("Failed to like post:", error.message);
+      setPosts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, likes: target.likes } : p)),
+      );
+    }
+  }, [posts]);
 
   const value = useMemo(
     () => ({ posts, ready, addPost, likePost }),
