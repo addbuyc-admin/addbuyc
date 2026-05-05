@@ -58,15 +58,15 @@ export default function HomePage() {
           {sorted.map((post) => (
             <li
               key={post.id}
-              className="rounded-2xl border border-zinc-200 bg-white px-5 py-4 shadow-sm transition hover:shadow-md"
+              className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition hover:shadow-md sm:px-5"
             >
-              <Link
-                href={`/posts/${post.id}`}
-                className="text-lg font-semibold tracking-tight text-zinc-900 underline-offset-4 hover:underline"
-              >
-                {post.title}
-              </Link>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                <Link
+                  href={`/posts/${post.id}`}
+                  className="min-w-0 flex-1 text-base font-semibold tracking-tight text-zinc-900 underline-offset-4 hover:underline"
+                >
+                  {post.title}
+                </Link>
                 <time dateTime={post.createdAt}>
                   {new Date(post.createdAt).toLocaleDateString(undefined, {
                     year: "numeric",
@@ -74,8 +74,7 @@ export default function HomePage() {
                     day: "numeric",
                   })}
                 </time>
-                <span aria-hidden>•</span>
-                <span>Likes: {post.likes}</span>
+                <span className="ml-auto text-zinc-600">Likes: {post.likes}</span>
               </div>
             </li>
           ))}
