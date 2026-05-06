@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { usePosts } from "@/context/PostsProvider";
 import { supabase } from "@/lib/supabase/client";
 import type { Post } from "@/lib/types";
 
 type PostRow = {
-  id: string;
+  id: number | string;
   title: string;
   description: string;
   image_url: string | null;
@@ -17,7 +18,7 @@ type PostRow = {
 
 function mapRowToPost(row: PostRow): Post {
   return {
-    id: row.id,
+    id: String(row.id),
     title: row.title,
     description: row.description,
     imageUrl: row.image_url,
@@ -35,8 +36,8 @@ type Reply = {
 };
 
 type ReplyRow = {
-  id: string;
-  post_id: string;
+  id: number | string;
+  post_id: number | string;
   description: string;
   likes: number;
   created_at: string;
@@ -44,16 +45,42 @@ type ReplyRow = {
 
 function mapRowToReply(row: ReplyRow): Reply {
   return {
-    id: row.id,
-    postId: row.post_id,
+    id: String(row.id),
+    postId: String(row.post_id),
     description: row.description,
     likes: row.likes,
     createdAt: row.created_at,
   };
 }
 
+function toDbId(id: string) {
+  return /^\d+$/.test(id) ? Number(id) : id;
+}
+
+const LIKED_POSTS_KEY = "addbuyc_liked_posts";
+const LIKED_REPLIES_KEY = "addbuyc_liked_replies";
+
+function readLikedSet(key: string) {
+  if (typeof window === "undefined") return new Set<string>();
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return new Set<string>();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set<string>();
+    return new Set(parsed.map((id) => String(id)));
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function writeLikedSet(key: string, values: Set<string>) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(key, JSON.stringify(Array.from(values)));
+}
+
 export default function PostDetailPage() {
   const params = useParams<{ id: string }>();
+  const { likePost } = usePosts();
   const [post, setPost] = useState<Post | null>(null);
   const [replies, setReplies] = useState<Reply[]>([]);
   const [replyBody, setReplyBody] = useState("");
@@ -61,6 +88,13 @@ export default function PostDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [replyError, setReplyError] = useState<string | null>(null);
   const [submittingReply, setSubmittingReply] = useState(false);
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [likedReplies, setLikedReplies] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setLikedPosts(readLikedSet(LIKED_POSTS_KEY));
+    setLikedReplies(readLikedSet(LIKED_REPLIES_KEY));
+  }, []);
 
   useEffect(() => {
     const postId = params.id;
@@ -74,7 +108,7 @@ export default function PostDetailPage() {
       const { data: postData, error: postError } = await supabase
         .from("posts")
         .select("id, title, description, image_url, likes, created_at")
-        .eq("id", postId)
+        .eq("id", toDbId(postId))
         .single();
 
       if (postError) {
@@ -91,7 +125,7 @@ export default function PostDetailPage() {
       const { data: repliesData, error: repliesError } = await supabase
         .from("replies")
         .select("id, post_id, description, likes, created_at")
-        .eq("post_id", postId)
+        .eq("post_id", toDbId(postId))
         .order("created_at", { ascending: true });
 
       if (repliesError) {
@@ -107,19 +141,26 @@ export default function PostDetailPage() {
 
   async function handleLikePost() {
     if (!post) return;
-    const previousLikes = post.likes;
-    const nextLikes = previousLikes + 1;
-    setPost((prev) => (prev ? { ...prev, likes: nextLikes } : prev));
-    const { error: likeError } = await supabase
-      .from("posts")
-      .update({ likes: nextLikes })
-      .eq("id", post.id);
-    if (likeError) {
-      setPost((prev) => (prev ? { ...prev, likes: previousLikes } : prev));
+    const postId = String(post.id);
+    if (likedPosts.has(postId)) return;
+
+    const ok = await likePost(postId);
+    if (!ok) {
+      console.error("Failed to like post on detail page:", postId);
+      return;
     }
+
+    setPost((prev) => (prev ? { ...prev, likes: prev.likes + 1 } : prev));
+    setLikedPosts((prev) => {
+      const next = new Set(prev);
+      next.add(postId);
+      writeLikedSet(LIKED_POSTS_KEY, next);
+      return next;
+    });
   }
 
   async function handleLikeReply(replyId: string) {
+    if (likedReplies.has(replyId)) return;
     const target = replies.find((reply) => reply.id === replyId);
     if (!target) return;
     const nextLikes = target.likes + 1;
@@ -131,14 +172,22 @@ export default function PostDetailPage() {
     const { error: likeError } = await supabase
       .from("replies")
       .update({ likes: nextLikes })
-      .eq("id", replyId);
+      .eq("id", toDbId(replyId));
     if (likeError) {
+      console.error("Failed to like reply:", likeError.message);
       setReplies((prev) =>
         prev.map((reply) =>
           reply.id === replyId ? { ...reply, likes: target.likes } : reply,
         ),
       );
+      return;
     }
+    setLikedReplies((prev) => {
+      const next = new Set(prev);
+      next.add(replyId);
+      writeLikedSet(LIKED_REPLIES_KEY, next);
+      return next;
+    });
   }
 
   async function handleReplySubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -154,7 +203,7 @@ export default function PostDetailPage() {
     const { data, error: insertError } = await supabase
       .from("replies")
       .insert({
-        post_id: post.id,
+        post_id: toDbId(String(post.id)),
         description: body,
         likes: 0,
       })
@@ -162,6 +211,7 @@ export default function PostDetailPage() {
       .single();
 
     if (insertError) {
+      console.error("Failed to post reply:", insertError.message);
       setReplyError("Failed to post reply.");
       setSubmittingReply(false);
       return;
@@ -205,13 +255,15 @@ export default function PostDetailPage() {
                 <button
                   type="button"
                   onClick={handleLikePost}
-                  className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-white"
+                  disabled={likedPosts.has(String(post.id))}
+                  className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
                   aria-label={`Like post: ${post.title}`}
                 >
                   <span aria-hidden className="text-base leading-none">
                     ♥
                   </span>
                   <span>{post.likes}</span>
+                  {likedPosts.has(String(post.id)) && <span>Liked</span>}
                 </button>
               </div>
               <p className="mt-6 whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
@@ -288,13 +340,15 @@ export default function PostDetailPage() {
                         <button
                           type="button"
                           onClick={() => handleLikeReply(reply.id)}
-                          className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-white"
+                          disabled={likedReplies.has(reply.id)}
+                          className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
                           aria-label="Like reply"
                         >
                           <span aria-hidden className="text-base leading-none">
                             ♥
                           </span>
                           <span>{reply.likes}</span>
+                          {likedReplies.has(reply.id) && <span>Liked</span>}
                         </button>
                       </div>
                     </div>

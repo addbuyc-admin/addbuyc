@@ -16,13 +16,13 @@ type PostsContextValue = {
   posts: Post[];
   ready: boolean;
   addPost: (input: Omit<Post, "id" | "createdAt" | "likes">) => Promise<void>;
-  likePost: (id: string) => Promise<void>;
+  likePost: (id: string) => Promise<boolean>;
 };
 
 const PostsContext = createContext<PostsContextValue | null>(null);
 
 type PostRow = {
-  id: string;
+  id: number | string;
   title: string;
   description: string;
   image_url: string | null;
@@ -30,9 +30,13 @@ type PostRow = {
   created_at: string;
 };
 
+function toDbId(id: string) {
+  return /^\d+$/.test(id) ? Number(id) : id;
+}
+
 function mapRowToPost(row: PostRow): Post {
   return {
-    id: row.id,
+    id: String(row.id),
     title: row.title,
     description: row.description,
     imageUrl: row.image_url,
@@ -93,7 +97,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
 
   const likePost = useCallback(async (id: string) => {
     const target = posts.find((p) => p.id === id);
-    if (!target) return;
+    if (!target) return false;
     const nextLikes = target.likes + 1;
     setPosts((prev) =>
       prev.map((p) => (p.id === id ? { ...p, likes: nextLikes } : p)),
@@ -101,13 +105,15 @@ export function PostsProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase
       .from("posts")
       .update({ likes: nextLikes })
-      .eq("id", id);
+      .eq("id", toDbId(id));
     if (error) {
       console.error("Failed to like post:", error.message);
       setPosts((prev) =>
         prev.map((p) => (p.id === id ? { ...p, likes: target.likes } : p)),
       );
+      return false;
     }
+    return true;
   }, [posts]);
 
   const value = useMemo(
