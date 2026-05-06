@@ -16,7 +16,7 @@ type PostsContextValue = {
   posts: Post[];
   ready: boolean;
   addPost: (input: Omit<Post, "id" | "createdAt" | "likes">) => Promise<void>;
-  likePost: (id: string) => Promise<boolean>;
+  likePost: (id: string) => Promise<number | null>;
 };
 
 const PostsContext = createContext<PostsContextValue | null>(null);
@@ -26,7 +26,7 @@ type PostRow = {
   title: string;
   description: string;
   image_url: string | null;
-  likes: number;
+  likes: number | null;
   created_at: string;
 };
 
@@ -40,7 +40,7 @@ function mapRowToPost(row: PostRow): Post {
     title: row.title,
     description: row.description,
     imageUrl: row.image_url,
-    likes: row.likes,
+    likes: typeof row.likes === "number" ? row.likes : 0,
     createdAt: row.created_at,
   };
 }
@@ -97,23 +97,75 @@ export function PostsProvider({ children }: { children: ReactNode }) {
 
   const likePost = useCallback(async (id: string) => {
     const target = posts.find((p) => p.id === id);
-    if (!target) return false;
-    const nextLikes = target.likes + 1;
-    setPosts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, likes: nextLikes } : p)),
-    );
+    let currentLikesBase = target?.likes ?? 0;
+    const nextLikes = currentLikesBase + 1;
+    if (target) {
+      setPosts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, likes: nextLikes } : p)),
+      );
+    }
+
+    let likesToPersist = nextLikes;
+    if (!target) {
+      const { data: current, error: currentError } = await supabase
+        .from("posts")
+        .select("likes")
+        .eq("id", toDbId(id))
+        .single();
+      if (currentError) {
+        console.error("Failed to fetch post before like:", currentError.message);
+        return null;
+      }
+      const currentLikes =
+        typeof (current as { likes?: number | null } | null)?.likes === "number"
+          ? (current as { likes: number }).likes
+          : 0;
+      currentLikesBase = currentLikes;
+      likesToPersist = currentLikes + 1;
+    }
+
     const { error } = await supabase
       .from("posts")
-      .update({ likes: nextLikes })
+      .update({ likes: likesToPersist })
       .eq("id", toDbId(id));
     if (error) {
       console.error("Failed to like post:", error.message);
-      setPosts((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, likes: target.likes } : p)),
-      );
-      return false;
+      if (target) {
+        setPosts((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, likes: target.likes } : p)),
+        );
+      }
+      return null;
     }
-    return true;
+
+    const { data: refreshed, error: refreshError } = await supabase
+      .from("posts")
+      .select("likes")
+      .eq("id", toDbId(id))
+      .maybeSingle();
+    if (refreshError) {
+      console.error("Failed to refresh post likes:", refreshError.message);
+    }
+
+    const persistedLikes =
+      typeof (refreshed as { likes?: number | null } | null)?.likes === "number"
+        ? (refreshed as { likes: number }).likes
+        : likesToPersist;
+    if (persistedLikes < likesToPersist) {
+      console.error(
+        "Failed to persist post like: update did not change row (check RLS/policies).",
+      );
+      if (target) {
+        setPosts((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, likes: currentLikesBase } : p)),
+        );
+      }
+      return null;
+    }
+    setPosts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, likes: persistedLikes } : p)),
+    );
+    return persistedLikes;
   }, [posts]);
 
   const value = useMemo(

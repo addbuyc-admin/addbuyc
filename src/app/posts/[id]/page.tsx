@@ -12,7 +12,7 @@ type PostRow = {
   title: string;
   description: string;
   image_url: string | null;
-  likes: number;
+  likes: number | null;
   created_at: string;
 };
 
@@ -22,7 +22,7 @@ function mapRowToPost(row: PostRow): Post {
     title: row.title,
     description: row.description,
     imageUrl: row.image_url,
-    likes: row.likes,
+    likes: typeof row.likes === "number" ? row.likes : 0,
     createdAt: row.created_at,
   };
 }
@@ -144,13 +144,12 @@ export default function PostDetailPage() {
     const postId = String(post.id);
     if (likedPosts.has(postId)) return;
 
-    const ok = await likePost(postId);
-    if (!ok) {
+    const persistedLikes = await likePost(postId);
+    if (persistedLikes === null) {
       console.error("Failed to like post on detail page:", postId);
       return;
     }
-
-    setPost((prev) => (prev ? { ...prev, likes: prev.likes + 1 } : prev));
+    setPost((prev) => (prev ? { ...prev, likes: persistedLikes } : prev));
     setLikedPosts((prev) => {
       const next = new Set(prev);
       next.add(postId);
