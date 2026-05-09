@@ -8,4 +8,5 @@ export type Post = {
   likes: number;
   createdAt: string;
   category: CategorySlug;
+  targetUrl: string | null;
 };

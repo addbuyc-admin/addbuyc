@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { usePosts } from "@/context/PostsProvider";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { CATEGORIES } from "@/lib/categories";
@@ -12,27 +12,77 @@ function isValidCategory(value: string | null): value is CategorySlug {
   return CATEGORIES.some((c) => c.slug === value);
 }
 
+function buildHref(params: { category?: string | null; q?: string }) {
+  const p = new URLSearchParams();
+  if (params.category) p.set("category", params.category);
+  if (params.q) p.set("q", params.q);
+  const qs = p.toString();
+  return qs ? `/posts?${qs}` : "/posts";
+}
+
 function PostListWithFilter() {
   const { posts, ready } = usePosts();
+  const router = useRouter();
   const searchParams = useSearchParams();
+
   const rawCategory = searchParams.get("category");
   const activeCategory: CategorySlug | null = isValidCategory(rawCategory)
     ? rawCategory
     : null;
+  const q = searchParams.get("q")?.trim() ?? "";
 
   const sorted = [...posts].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
-  const filtered = activeCategory
-    ? sorted.filter((p) => p.category === activeCategory)
-    : sorted;
+  const filtered = sorted
+    .filter((p) => !activeCategory || p.category === activeCategory)
+    .filter((p) => {
+      if (!q) return true;
+      const lower = q.toLowerCase();
+      return (
+        p.title.toLowerCase().includes(lower) ||
+        p.description.toLowerCase().includes(lower)
+      );
+    });
+
+  function handleSearch(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const newQ = (new FormData(e.currentTarget).get("search") as string)?.trim() ?? "";
+    router.push(buildHref({ category: activeCategory, q: newQ }));
+  }
 
   return (
     <>
+      {/* Search input */}
+      <form key={q} onSubmit={handleSearch} className="mb-4 flex gap-2">
+        <input
+          name="search"
+          type="text"
+          defaultValue={q}
+          placeholder="タイトル・本文で検索…"
+          className="min-w-0 flex-1 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-zinc-300 focus:bg-white focus:ring-2 focus:ring-zinc-900/10"
+        />
+        <button
+          type="submit"
+          className="rounded-full bg-zinc-900 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
+        >
+          検索
+        </button>
+        {q && (
+          <Link
+            href={buildHref({ category: activeCategory })}
+            className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+          >
+            クリア
+          </Link>
+        )}
+      </form>
+
+      {/* Category filter pills */}
       <div className="mb-6 flex flex-wrap gap-2">
         <Link
-          href="/posts"
+          href={buildHref({ q })}
           className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition ${
             !activeCategory
               ? "bg-zinc-900 text-white"
@@ -44,7 +94,7 @@ function PostListWithFilter() {
         {CATEGORIES.map((cat) => (
           <Link
             key={cat.slug}
-            href={`/posts?category=${cat.slug}`}
+            href={buildHref({ category: cat.slug, q })}
             className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition ${
               activeCategory === cat.slug
                 ? "bg-zinc-900 text-white"
@@ -56,6 +106,7 @@ function PostListWithFilter() {
         ))}
       </div>
 
+      {/* Post list */}
       {!ready ? (
         <ul className="flex flex-col gap-4">
           {[1, 2, 3].map((i) => (
@@ -64,7 +115,19 @@ function PostListWithFilter() {
         </ul>
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-8 py-16 text-center">
-          {activeCategory ? (
+          {q ? (
+            <>
+              <p className="text-zinc-600">
+                「{q}」に一致する投稿はありません。
+              </p>
+              <Link
+                href={buildHref({ category: activeCategory })}
+                className="mt-4 inline-block text-sm font-medium text-zinc-900 underline underline-offset-4"
+              >
+                検索をクリア
+              </Link>
+            </>
+          ) : activeCategory ? (
             <>
               <p className="text-zinc-600">
                 このカテゴリの投稿はまだありません。
