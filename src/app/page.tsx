@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { usePosts } from "@/context/PostsProvider";
 import { CATEGORIES } from "@/lib/categories";
 import { CategoryBadge } from "@/components/CategoryBadge";
@@ -27,6 +29,14 @@ const HOW_TO_USE = [
 
 export default function HomePage() {
   const { posts, ready } = usePosts();
+  const router = useRouter();
+  const [heroSearch, setHeroSearch] = useState("");
+
+  function handleHeroSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const q = heroSearch.trim();
+    router.push(q ? `/posts?q=${encodeURIComponent(q)}` : "/posts");
+  }
 
   const latestPosts = [...posts]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -60,6 +70,24 @@ export default function HomePage() {
             投稿を見る
           </Link>
         </div>
+        <form
+          onSubmit={handleHeroSearch}
+          className="mx-auto mt-6 flex w-full max-w-md gap-2"
+        >
+          <input
+            type="text"
+            value={heroSearch}
+            onChange={(e) => setHeroSearch(e.target.value)}
+            placeholder="気になる商品・お店を検索…"
+            className="min-w-0 flex-1 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-zinc-300 focus:bg-white focus:ring-2 focus:ring-zinc-900/10"
+          />
+          <button
+            type="submit"
+            className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
+          >
+            検索
+          </button>
+        </form>
       </section>
 
       {/* Category links */}

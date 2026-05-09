@@ -31,6 +31,7 @@ type PostRow = {
   likes: number | null;
   created_at: string;
   category: string | null;
+  target_url: string | null;
 };
 
 function toDbId(id: string) {
@@ -60,6 +61,7 @@ function mapRowToPost(row: PostRow): Post {
     likes: typeof row.likes === "number" ? row.likes : 0,
     createdAt: row.created_at,
     category: toCategory(row.category),
+    targetUrl: row.target_url,
   };
 }
 
@@ -70,7 +72,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
   const fetchPosts = useCallback(async () => {
     const { data, error } = await supabase
       .from("posts")
-      .select("id, title, description, image_url, likes, created_at, category")
+      .select("id, title, description, image_url, likes, created_at, category, target_url")
       .order("created_at", { ascending: false });
     if (error) {
       console.error("Failed to load posts:", error.message);
@@ -102,8 +104,9 @@ export function PostsProvider({ children }: { children: ReactNode }) {
           image_url: input.imageUrl,
           likes: 0,
           category: input.category,
+          target_url: input.targetUrl,
         })
-        .select("id, title, description, image_url, likes, created_at, category")
+        .select("id, title, description, image_url, likes, created_at, category, target_url")
         .single();
       if (error) {
         console.error("Failed to create post:", error.message);

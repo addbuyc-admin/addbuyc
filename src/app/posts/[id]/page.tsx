@@ -31,6 +31,7 @@ type PostRow = {
   likes: number | null;
   created_at: string;
   category: string | null;
+  target_url: string | null;
 };
 
 function mapRowToPost(row: PostRow): Post {
@@ -42,6 +43,7 @@ function mapRowToPost(row: PostRow): Post {
     likes: typeof row.likes === "number" ? row.likes : 0,
     createdAt: row.created_at,
     category: toCategory(row.category),
+    targetUrl: row.target_url,
   };
 }
 
@@ -125,7 +127,7 @@ export default function PostDetailPage() {
     void (async () => {
       const { data: postData, error: postError } = await supabase
         .from("posts")
-        .select("id, title, description, image_url, likes, created_at, category")
+        .select("id, title, description, image_url, likes, created_at, category, target_url")
         .eq("id", toDbId(postId))
         .single();
 
@@ -289,6 +291,19 @@ export default function PostDetailPage() {
               <p className="mt-6 whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
                 {post.description}
               </p>
+              {post.targetUrl && (
+                <div className="mt-4 border-t border-zinc-100 pt-4">
+                  <p className="text-xs font-medium text-zinc-500">対象URL</p>
+                  <a
+                    href={post.targetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-block max-w-full truncate text-sm text-blue-600 underline underline-offset-2 hover:text-blue-800"
+                  >
+                    {post.targetUrl}
+                  </a>
+                </div>
+              )}
             </div>
 
             {post.imageUrl && (

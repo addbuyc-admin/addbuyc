@@ -12,6 +12,7 @@ export default function NewPostPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<CategorySlug>("fashion");
+  const [targetUrl, setTargetUrl] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFileName, setImageFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +75,7 @@ export default function NewPostPage() {
         description: d,
         imageUrl: imagePreview,
         category,
+        targetUrl: targetUrl.trim() || null,
       });
       await refetchPosts();
       router.push("/posts");
@@ -166,6 +168,29 @@ export default function NewPostPage() {
             rows={6}
             className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
           />
+        </div>
+
+        <div className="space-y-2">
+          <label
+            htmlFor="targetUrl"
+            className="text-sm font-medium text-zinc-800"
+          >
+            対象URL{" "}
+            <span className="font-normal text-zinc-400">（任意）</span>
+          </label>
+          <input
+            id="targetUrl"
+            name="targetUrl"
+            type="text"
+            value={targetUrl}
+            onChange={(e) => setTargetUrl(e.target.value)}
+            placeholder="https://..."
+            className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+            autoComplete="off"
+          />
+          <p className="text-xs text-zinc-400">
+            メルカリ・Yahoo!オークション・ブランド公式・飲食店サイトなどのURLを貼ってください。
+          </p>
         </div>
 
         <div className="space-y-2">
