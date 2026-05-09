@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { usePosts } from "@/context/PostsProvider";
+import { CATEGORIES, type CategorySlug } from "@/lib/categories";
 
 export default function NewPostPage() {
   const router = useRouter();
-  const { addPost } = usePosts();
+  const { addPost, refetchPosts } = usePosts();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<CategorySlug>("fashion");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFileName, setImageFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +73,9 @@ export default function NewPostPage() {
         title: t,
         description: d,
         imageUrl: imagePreview,
+        category,
       });
+      await refetchPosts();
       router.push("/");
     } catch {
       setError("Failed to publish post. Please check Supabase settings.");
@@ -102,6 +106,31 @@ export default function NewPostPage() {
         onSubmit={handleSubmit}
         className="flex flex-col gap-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
       >
+        <div className="space-y-2">
+          <label
+            htmlFor="category"
+            className="text-sm font-medium text-zinc-800"
+          >
+            カテゴリ
+          </label>
+          <select
+            id="category"
+            name="category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value as CategorySlug)}
+            className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition focus:border-zinc-300 focus:ring-2"
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c.slug} value={c.slug}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-zinc-400">
+            {CATEGORIES.find((c) => c.slug === category)?.description}
+          </p>
+        </div>
+
         <div className="space-y-2">
           <label
             htmlFor="title"

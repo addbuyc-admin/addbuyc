@@ -9,6 +9,7 @@ export const SEED_POSTS: Post[] = [
     imageUrl: "https://picsum.photos/seed/addbuy1/800/450",
     likes: 12,
     createdAt: new Date("2026-05-01T10:00:00Z").toISOString(),
+    category: "other",
   },
   {
     id: "seed-2",
@@ -18,6 +19,7 @@ export const SEED_POSTS: Post[] = [
     imageUrl: null,
     likes: 5,
     createdAt: new Date("2026-05-02T14:30:00Z").toISOString(),
+    category: "other",
   },
   {
     id: "seed-3",
@@ -27,5 +29,6 @@ export const SEED_POSTS: Post[] = [
     imageUrl: "https://picsum.photos/seed/forum2/800/450",
     likes: 28,
     createdAt: new Date("2026-05-04T09:15:00Z").toISOString(),
+    category: "other",
   },
 ];

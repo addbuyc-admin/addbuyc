@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Post } from "@/lib/types";
+import type { CategorySlug } from "@/lib/categories";
 import { supabase } from "@/lib/supabase/client";
 
 type PostsContextValue = {
@@ -17,6 +18,7 @@ type PostsContextValue = {
   ready: boolean;
   addPost: (input: Omit<Post, "id" | "createdAt" | "likes">) => Promise<void>;
   likePost: (id: string) => Promise<number | null>;
+  refetchPosts: () => Promise<void>;
 };
 
 const PostsContext = createContext<PostsContextValue | null>(null);
@@ -28,10 +30,25 @@ type PostRow = {
   image_url: string | null;
   likes: number | null;
   created_at: string;
+  category: string | null;
 };
 
 function toDbId(id: string) {
   return /^\d+$/.test(id) ? Number(id) : id;
+}
+
+const VALID_CATEGORIES = new Set([
+  "fashion",
+  "beauty",
+  "gadget",
+  "hobby",
+  "gourmet",
+  "other",
+]);
+
+function toCategory(value: string | null): CategorySlug {
+  if (value && VALID_CATEGORIES.has(value)) return value as CategorySlug;
+  return "other";
 }
 
 function mapRowToPost(row: PostRow): Post {
@@ -42,6 +59,7 @@ function mapRowToPost(row: PostRow): Post {
     imageUrl: row.image_url,
     likes: typeof row.likes === "number" ? row.likes : 0,
     createdAt: row.created_at,
+    category: toCategory(row.category),
   };
 }
 
@@ -52,7 +70,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
   const fetchPosts = useCallback(async () => {
     const { data, error } = await supabase
       .from("posts")
-      .select("id, title, description, image_url, likes, created_at")
+      .select("id, title, description, image_url, likes, created_at, category")
       .order("created_at", { ascending: false });
     if (error) {
       console.error("Failed to load posts:", error.message);
@@ -83,8 +101,9 @@ export function PostsProvider({ children }: { children: ReactNode }) {
           description: input.description,
           image_url: input.imageUrl,
           likes: 0,
+          category: input.category,
         })
-        .select("id, title, description, image_url, likes, created_at")
+        .select("id, title, description, image_url, likes, created_at, category")
         .single();
       if (error) {
         console.error("Failed to create post:", error.message);
@@ -169,8 +188,8 @@ export function PostsProvider({ children }: { children: ReactNode }) {
   }, [posts]);
 
   const value = useMemo(
-    () => ({ posts, ready, addPost, likePost }),
-    [posts, ready, addPost, likePost],
+    () => ({ posts, ready, addPost, likePost, refetchPosts: fetchPosts }),
+    [posts, ready, addPost, likePost, fetchPosts],
   );
 
   return (

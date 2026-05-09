@@ -6,6 +6,21 @@ import { useEffect, useState } from "react";
 import { usePosts } from "@/context/PostsProvider";
 import { supabase } from "@/lib/supabase/client";
 import type { Post } from "@/lib/types";
+import type { CategorySlug } from "@/lib/categories";
+
+const VALID_CATEGORIES = new Set([
+  "fashion",
+  "beauty",
+  "gadget",
+  "hobby",
+  "gourmet",
+  "other",
+]);
+
+function toCategory(value: string | null): CategorySlug {
+  if (value && VALID_CATEGORIES.has(value)) return value as CategorySlug;
+  return "other";
+}
 
 type PostRow = {
   id: number | string;
@@ -14,6 +29,7 @@ type PostRow = {
   image_url: string | null;
   likes: number | null;
   created_at: string;
+  category: string | null;
 };
 
 function mapRowToPost(row: PostRow): Post {
@@ -24,6 +40,7 @@ function mapRowToPost(row: PostRow): Post {
     imageUrl: row.image_url,
     likes: typeof row.likes === "number" ? row.likes : 0,
     createdAt: row.created_at,
+    category: toCategory(row.category),
   };
 }
 
@@ -107,7 +124,7 @@ export default function PostDetailPage() {
     void (async () => {
       const { data: postData, error: postError } = await supabase
         .from("posts")
-        .select("id, title, description, image_url, likes, created_at")
+        .select("id, title, description, image_url, likes, created_at, category")
         .eq("id", toDbId(postId))
         .single();
 
