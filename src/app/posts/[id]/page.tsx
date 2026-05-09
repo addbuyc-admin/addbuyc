@@ -7,6 +7,7 @@ import { usePosts } from "@/context/PostsProvider";
 import { supabase } from "@/lib/supabase/client";
 import type { Post } from "@/lib/types";
 import type { CategorySlug } from "@/lib/categories";
+import { CategoryBadge } from "@/components/CategoryBadge";
 
 const VALID_CATEGORIES = new Set([
   "fashion",
@@ -261,13 +262,16 @@ export default function PostDetailPage() {
                 {post.title}
               </h1>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-4 text-sm text-zinc-500">
-                <time dateTime={post.createdAt}>
-                  {new Date(post.createdAt).toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </time>
+                <div className="flex items-center gap-2">
+                  <CategoryBadge category={post.category} />
+                  <time dateTime={post.createdAt}>
+                    {new Date(post.createdAt).toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </time>
+                </div>
                 <button
                   type="button"
                   onClick={handleLikePost}

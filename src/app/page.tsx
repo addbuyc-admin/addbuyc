@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePosts } from "@/context/PostsProvider";
+import { CategoryBadge } from "@/components/CategoryBadge";
 
 export default function HomePage() {
   const { posts, ready } = usePosts();
@@ -67,6 +68,7 @@ export default function HomePage() {
                 >
                   {post.title}
                 </Link>
+                <CategoryBadge category={post.category} />
                 <time dateTime={post.createdAt}>
                   {new Date(post.createdAt).toLocaleDateString(undefined, {
                     year: "numeric",
