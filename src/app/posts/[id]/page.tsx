@@ -242,7 +242,7 @@ export default function PostDetailPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <Link
-        href="/"
+        href="/posts"
         className="text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
       >
         ← Back to posts

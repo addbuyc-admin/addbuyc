@@ -76,7 +76,7 @@ export default function NewPostPage() {
         category,
       });
       await refetchPosts();
-      router.push("/");
+      router.push("/posts");
     } catch {
       setError("Failed to publish post. Please check Supabase settings.");
       submitLock.current = false;
@@ -88,7 +88,7 @@ export default function NewPostPage() {
     <div className="mx-auto max-w-xl px-4 py-10">
       <div className="mb-8">
         <Link
-          href="/"
+          href="/posts"
           className="text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
         >
           ← Back to posts
@@ -227,7 +227,7 @@ export default function NewPostPage() {
             {submitting ? "Publishing..." : "Publish post"}
           </button>
           <Link
-            href="/"
+            href="/posts"
             className="rounded-full border border-zinc-200 bg-white px-6 py-2.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
           >
             Cancel
