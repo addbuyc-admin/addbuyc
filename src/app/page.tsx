@@ -5,7 +5,7 @@ import { usePosts } from "@/context/PostsProvider";
 import { CATEGORIES } from "@/lib/categories";
 import { CategoryBadge } from "@/components/CategoryBadge";
 
-const DISPLAY_CATEGORIES = CATEGORIES.filter((c) => c.slug !== "other");
+const DISPLAY_CATEGORIES = CATEGORIES;
 
 const HOW_TO_USE = [
   {
