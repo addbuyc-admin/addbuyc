@@ -28,14 +28,32 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const { status } = body as { status?: string };
-  if (!status || !VALID_STATUSES.has(status)) {
+  const { status, admin_note } = body as {
+    status?: string;
+    admin_note?: string | null;
+  };
+
+  if (status === undefined && admin_note === undefined) {
+    return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+  }
+  if (status !== undefined && !VALID_STATUSES.has(status)) {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  }
+
+  const updates: Record<string, unknown> = {};
+
+  if (status !== undefined) {
+    updates.status = status;
+    updates.handled_at =
+      status === "open" ? null : new Date().toISOString();
+  }
+  if (admin_note !== undefined) {
+    updates.admin_note = admin_note ?? null;
   }
 
   const { error } = await supabase
     .from("reports")
-    .update({ status })
+    .update(updates)
     .eq("id", dbId);
 
   if (error) {

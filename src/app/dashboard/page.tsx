@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { ToggleStatusButton } from "@/components/ToggleStatusButton";
 import { ReportStatusButton } from "@/components/ReportStatusButton";
+import { ReportNoteEditor } from "@/components/ReportNoteEditor";
 
 const REASON_LABELS: Record<string, string> = {
   spam: "スパム",
@@ -48,6 +50,8 @@ type ReportRow = {
   description: string | null;
   created_at: string;
   status: string;
+  admin_note: string | null;
+  handled_at: string | null;
 };
 
 async function getPosts(): Promise<PostRow[]> {
@@ -67,7 +71,9 @@ async function getPosts(): Promise<PostRow[]> {
 async function getReports(): Promise<ReportRow[]> {
   const { data, error } = await supabase
     .from("reports")
-    .select("id, target_type, target_id, reason, description, created_at, status")
+    .select(
+      "id, target_type, target_id, reason, description, created_at, status, admin_note, handled_at",
+    )
     .order("created_at", { ascending: false });
   if (error) {
     console.error("Dashboard: failed to load reports:", error.message);
@@ -143,11 +149,12 @@ function FilterTabs({
   currentParams: Record<string, string>;
 }) {
   return (
-    <div className="flex gap-1.5">
+    <div className="flex flex-wrap gap-1.5">
       {options.map((opt) => (
         <Link
           key={opt.value}
           href={buildFilterHref(currentParams, paramKey, opt.value)}
+          scroll={false}
           className={`rounded-full px-3 py-1 text-xs font-medium transition ${
             current === opt.value
               ? "bg-zinc-900 text-white"
@@ -173,6 +180,13 @@ const REPLY_STATUS_OPTIONS = [
   { value: "hidden", label: "非表示" },
 ];
 
+const REPORT_STATUS_OPTIONS = [
+  { value: "all", label: "すべて" },
+  { value: "open", label: "未対応" },
+  { value: "resolved", label: "対応済み" },
+  { value: "dismissed", label: "対応不要" },
+];
+
 type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
@@ -187,10 +201,15 @@ export default async function DashboardPage({ searchParams }: Props) {
     typeof resolvedParams.replyStatus === "string"
       ? resolvedParams.replyStatus
       : "all";
+  const reportFilter =
+    typeof resolvedParams.reportStatus === "string"
+      ? resolvedParams.reportStatus
+      : "all";
 
   const currentParams: Record<string, string> = {};
   if (postFilter !== "all") currentParams.postStatus = postFilter;
   if (replyFilter !== "all") currentParams.replyStatus = replyFilter;
+  if (reportFilter !== "all") currentParams.reportStatus = reportFilter;
 
   const [posts, replies, reports] = await Promise.all([
     getPosts(),
@@ -203,18 +222,22 @@ export default async function DashboardPage({ searchParams }: Props) {
     replies.map((r) => [r.id, r.post_id]),
   );
 
-  // サマリー集計（フィルター前の全データを使用）
+  // サマリー集計（フィルター前の全データ）
   const openReports = reports.filter((r) => r.status === "open").length;
   const hiddenPosts = posts.filter((p) => p.status === "hidden").length;
   const hiddenReplies = replies.filter((r) => r.status === "hidden").length;
 
-  // フィルター適用後のリスト（表示用）
+  // フィルター適用後のリスト
   const filteredPosts =
     postFilter === "all" ? posts : posts.filter((p) => p.status === postFilter);
   const filteredReplies =
     replyFilter === "all"
       ? replies
       : replies.filter((r) => r.status === replyFilter);
+  const filteredReports =
+    reportFilter === "all"
+      ? reports
+      : reports.filter((r) => r.status === reportFilter);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -312,6 +335,8 @@ export default async function DashboardPage({ searchParams }: Props) {
                   <td className="max-w-xs px-4 py-3">
                     <Link
                       href={`/posts/${post.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className={`font-medium underline-offset-2 hover:underline ${
                         post.status === "hidden"
                           ? "text-zinc-400"
@@ -356,12 +381,20 @@ export default async function DashboardPage({ searchParams }: Props) {
 
       {/* Reports */}
       <section className="mb-12">
-        <h2 className="mb-4 text-lg font-semibold text-zinc-900">
-          通報{" "}
-          <span className="ml-1 text-sm font-normal text-zinc-500">
-            ({reports.length}件)
-          </span>
-        </h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-zinc-900">
+            通報{" "}
+            <span className="ml-1 text-sm font-normal text-zinc-500">
+              ({filteredReports.length}/{reports.length}件)
+            </span>
+          </h2>
+          <FilterTabs
+            options={REPORT_STATUS_OPTIONS}
+            paramKey="reportStatus"
+            current={reportFilter}
+            currentParams={currentParams}
+          />
+        </div>
         <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
           <table className="w-full text-sm">
             <thead>
@@ -372,80 +405,111 @@ export default async function DashboardPage({ searchParams }: Props) {
                 <th className="px-4 py-3">理由</th>
                 <th className="px-4 py-3">補足</th>
                 <th className="px-4 py-3">状態</th>
-                <th className="px-4 py-3">日時</th>
+                <th className="px-4 py-3">通報日時</th>
+                <th className="px-4 py-3">対応日時</th>
                 <th className="px-4 py-3">操作</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {reports.map((report) => {
+            <tbody>
+              {filteredReports.map((report) => {
                 const postId =
                   report.target_type === "post"
                     ? report.target_id
                     : (replyPostMap.get(report.target_id) ?? null);
                 return (
-                  <tr key={report.id} className="hover:bg-zinc-50/70">
-                    <td className="px-4 py-3 text-zinc-400">{report.id}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                          report.target_type === "post"
-                            ? "bg-blue-50 text-blue-700"
-                            : "bg-purple-50 text-purple-700"
-                        }`}
-                      >
-                        {report.target_type === "post" ? "投稿" : "返信"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {postId !== null ? (
-                        <Link
-                          href={`/posts/${postId}`}
-                          className="text-blue-600 underline-offset-2 hover:underline"
+                  <Fragment key={report.id}>
+                    {/* データ行 */}
+                    <tr className="border-t border-zinc-100 hover:bg-zinc-50/70">
+                      <td className="px-4 py-3 text-zinc-400">{report.id}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                            report.target_type === "post"
+                              ? "bg-blue-50 text-blue-700"
+                              : "bg-purple-50 text-purple-700"
+                          }`}
                         >
-                          {report.target_id}
-                        </Link>
-                      ) : (
-                        <span className="text-zinc-400">{report.target_id}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-700">
-                      {REASON_LABELS[report.reason] ?? report.reason}
-                    </td>
-                    <td className="max-w-xs px-4 py-3 text-zinc-500">
-                      {report.description ? (
-                        <span className="line-clamp-2">
-                          {report.description}
+                          {report.target_type === "post" ? "投稿" : "返信"}
                         </span>
-                      ) : (
-                        <span className="text-zinc-300">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <ReportStatusBadge status={report.status} />
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
-                      {new Date(report.created_at).toLocaleDateString("ja-JP")}
-                    </td>
-                    <td className="px-4 py-3">
-                      <ReportStatusButton
-                        id={report.id}
-                        currentStatus={
-                          report.status === "resolved"
-                            ? "resolved"
-                            : report.status === "dismissed"
-                              ? "dismissed"
-                              : "open"
-                        }
-                      />
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-4 py-3">
+                        {postId !== null ? (
+                          <Link
+                            href={`/posts/${postId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 underline-offset-2 hover:underline"
+                          >
+                            {report.target_id}
+                          </Link>
+                        ) : (
+                          <span className="text-zinc-400">
+                            {report.target_id}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-zinc-700">
+                        {REASON_LABELS[report.reason] ?? report.reason}
+                      </td>
+                      <td className="max-w-xs px-4 py-3 text-zinc-500">
+                        {report.description ? (
+                          <span className="line-clamp-2">
+                            {report.description}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <ReportStatusBadge status={report.status} />
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
+                        {new Date(report.created_at).toLocaleDateString(
+                          "ja-JP",
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
+                        {report.handled_at ? (
+                          new Date(report.handled_at).toLocaleDateString(
+                            "ja-JP",
+                          )
+                        ) : (
+                          <span className="text-zinc-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <ReportStatusButton
+                          id={report.id}
+                          currentStatus={
+                            report.status === "resolved"
+                              ? "resolved"
+                              : report.status === "dismissed"
+                                ? "dismissed"
+                                : "open"
+                          }
+                        />
+                      </td>
+                    </tr>
+                    {/* 管理メモ行 */}
+                    <tr className="border-b border-zinc-100 bg-zinc-50/50">
+                      <td
+                        colSpan={9}
+                        className="px-4 pb-3 pt-1"
+                      >
+                        <ReportNoteEditor
+                          id={report.id}
+                          initialNote={report.admin_note}
+                        />
+                      </td>
+                    </tr>
+                  </Fragment>
                 );
               })}
             </tbody>
           </table>
-          {reports.length === 0 && (
+          {filteredReports.length === 0 && (
             <p className="px-4 py-10 text-center text-sm text-zinc-400">
-              通報なし
+              該当する通報なし
             </p>
           )}
         </div>
@@ -494,6 +558,8 @@ export default async function DashboardPage({ searchParams }: Props) {
                   <td className="px-4 py-3">
                     <Link
                       href={`/posts/${reply.post_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="text-blue-600 underline-offset-2 hover:underline"
                     >
                       {reply.post_id}
