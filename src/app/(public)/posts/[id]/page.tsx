@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase/client";
 import type { Post } from "@/lib/types";
 import type { CategorySlug } from "@/lib/categories";
 import { CategoryBadge } from "@/components/CategoryBadge";
+import { ReportButton } from "@/components/ReportButton";
 
 const VALID_CATEGORIES = new Set([
   "fashion",
@@ -314,6 +315,9 @@ export default function PostDetailPage() {
                   </a>
                 </div>
               )}
+              <div className="mt-4 flex justify-end border-t border-zinc-100 pt-3">
+                <ReportButton targetType="post" targetId={String(post.id)} />
+              </div>
             </div>
 
             {post.imageUrl && (
@@ -395,6 +399,9 @@ export default function PostDetailPage() {
                           <span>{reply.likes}</span>
                           {likedReplies.has(reply.id) && <span>Liked</span>}
                         </button>
+                      </div>
+                      <div className="mt-2 flex justify-end">
+                        <ReportButton targetType="reply" targetId={reply.id} />
                       </div>
                     </div>
                   </li>
