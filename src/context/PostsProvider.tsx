@@ -16,7 +16,7 @@ import { supabase } from "@/lib/supabase/client";
 type PostsContextValue = {
   posts: Post[];
   ready: boolean;
-  addPost: (input: Omit<Post, "id" | "createdAt" | "likes">) => Promise<void>;
+  addPost: (input: Omit<Post, "id" | "createdAt" | "likes" | "status">) => Promise<void>;
   likePost: (id: string) => Promise<number | null>;
   refetchPosts: () => Promise<void>;
 };
@@ -32,6 +32,7 @@ type PostRow = {
   created_at: string;
   category: string | null;
   target_url: string | null;
+  status: string | null;
 };
 
 function toDbId(id: string) {
@@ -62,6 +63,7 @@ function mapRowToPost(row: PostRow): Post {
     createdAt: row.created_at,
     category: toCategory(row.category),
     targetUrl: row.target_url,
+    status: row.status === "hidden" ? "hidden" : "published",
   };
 }
 
@@ -72,7 +74,8 @@ export function PostsProvider({ children }: { children: ReactNode }) {
   const fetchPosts = useCallback(async () => {
     const { data, error } = await supabase
       .from("posts")
-      .select("id, title, description, image_url, likes, created_at, category, target_url")
+      .select("id, title, description, image_url, likes, created_at, category, target_url, status")
+      .eq("status", "published")
       .order("created_at", { ascending: false });
     if (error) {
       console.error("Failed to load posts:", error.message);
@@ -95,7 +98,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
   }, [fetchPosts]);
 
   const addPost = useCallback(
-    async (input: Omit<Post, "id" | "createdAt" | "likes">) => {
+    async (input: Omit<Post, "id" | "createdAt" | "likes" | "status">) => {
       const { data, error } = await supabase
         .from("posts")
         .insert({
@@ -106,7 +109,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
           category: input.category,
           target_url: input.targetUrl,
         })
-        .select("id, title, description, image_url, likes, created_at, category, target_url")
+        .select("id, title, description, image_url, likes, created_at, category, target_url, status")
         .single();
       if (error) {
         console.error("Failed to create post:", error.message);
