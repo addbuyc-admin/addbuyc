@@ -9,4 +9,5 @@ export type Post = {
   createdAt: string;
   category: CategorySlug;
   targetUrl: string | null;
+  status: "published" | "hidden";
 };

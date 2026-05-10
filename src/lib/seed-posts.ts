@@ -11,6 +11,7 @@ export const SEED_POSTS: Post[] = [
     createdAt: new Date("2026-05-01T10:00:00Z").toISOString(),
     category: "other",
     targetUrl: null,
+    status: "published",
   },
   {
     id: "seed-2",
@@ -22,6 +23,7 @@ export const SEED_POSTS: Post[] = [
     createdAt: new Date("2026-05-02T14:30:00Z").toISOString(),
     category: "other",
     targetUrl: null,
+    status: "published",
   },
   {
     id: "seed-3",
@@ -33,5 +35,6 @@ export const SEED_POSTS: Post[] = [
     createdAt: new Date("2026-05-04T09:15:00Z").toISOString(),
     category: "other",
     targetUrl: null,
+    status: "published",
   },
 ];

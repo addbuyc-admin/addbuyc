@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { ToggleStatusButton } from "@/components/ToggleStatusButton";
 
 type PostRow = {
   id: number;
@@ -9,6 +10,7 @@ type PostRow = {
   likes: number | null;
   created_at: string;
   target_url: string | null;
+  status: string;
 };
 
 type ReplyRow = {
@@ -17,12 +19,13 @@ type ReplyRow = {
   description: string;
   likes: number;
   created_at: string;
+  status: string;
 };
 
 async function getPosts(): Promise<PostRow[]> {
   const { data, error } = await supabase
     .from("posts")
-    .select("id, title, description, category, likes, created_at, target_url")
+    .select("id, title, description, category, likes, created_at, target_url, status")
     .order("created_at", { ascending: false });
   if (error) {
     console.error("Dashboard: failed to load posts:", error.message);
@@ -34,13 +37,27 @@ async function getPosts(): Promise<PostRow[]> {
 async function getReplies(): Promise<ReplyRow[]> {
   const { data, error } = await supabase
     .from("replies")
-    .select("id, post_id, description, likes, created_at")
+    .select("id, post_id, description, likes, created_at, status")
     .order("created_at", { ascending: false });
   if (error) {
     console.error("Dashboard: failed to load replies:", error.message);
     return [];
   }
   return (data ?? []) as ReplyRow[];
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+        status === "published"
+          ? "bg-emerald-50 text-emerald-700"
+          : "bg-red-50 text-red-700"
+      }`}
+    >
+      {status === "published" ? "公開中" : "非表示"}
+    </span>
+  );
 }
 
 export default async function DashboardPage() {
@@ -82,18 +99,31 @@ export default async function DashboardPage() {
                 <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">タイトル</th>
                 <th className="px-4 py-3">カテゴリ</th>
+                <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Likes</th>
                 <th className="px-4 py-3">日時</th>
+                <th className="px-4 py-3">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {posts.map((post) => (
-                <tr key={post.id} className="hover:bg-zinc-50/70">
+                <tr
+                  key={post.id}
+                  className={
+                    post.status === "hidden"
+                      ? "bg-red-50/40 hover:bg-red-50/60"
+                      : "hover:bg-zinc-50/70"
+                  }
+                >
                   <td className="px-4 py-3 text-zinc-400">{post.id}</td>
                   <td className="max-w-xs px-4 py-3">
                     <Link
                       href={`/posts/${post.id}`}
-                      className="font-medium text-zinc-900 underline-offset-2 hover:underline"
+                      className={`font-medium underline-offset-2 hover:underline ${
+                        post.status === "hidden"
+                          ? "text-zinc-400"
+                          : "text-zinc-900"
+                      }`}
                     >
                       {post.title}
                     </Link>
@@ -101,11 +131,23 @@ export default async function DashboardPage() {
                   <td className="px-4 py-3 text-zinc-600">
                     {post.category ?? "—"}
                   </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={post.status} />
+                  </td>
                   <td className="px-4 py-3 text-right text-zinc-600">
                     {post.likes ?? 0}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
                     {new Date(post.created_at).toLocaleDateString("ja-JP")}
+                  </td>
+                  <td className="px-4 py-3">
+                    <ToggleStatusButton
+                      id={post.id}
+                      type="post"
+                      currentStatus={
+                        post.status === "hidden" ? "hidden" : "published"
+                      }
+                    />
                   </td>
                 </tr>
               ))}
@@ -134,13 +176,22 @@ export default async function DashboardPage() {
                 <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">Post ID</th>
                 <th className="px-4 py-3">内容</th>
+                <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Likes</th>
                 <th className="px-4 py-3">日時</th>
+                <th className="px-4 py-3">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {replies.map((reply) => (
-                <tr key={reply.id} className="hover:bg-zinc-50/70">
+                <tr
+                  key={reply.id}
+                  className={
+                    reply.status === "hidden"
+                      ? "bg-red-50/40 hover:bg-red-50/60"
+                      : "hover:bg-zinc-50/70"
+                  }
+                >
                   <td className="px-4 py-3 text-zinc-400">{reply.id}</td>
                   <td className="px-4 py-3">
                     <Link
@@ -153,11 +204,23 @@ export default async function DashboardPage() {
                   <td className="max-w-sm px-4 py-3 text-zinc-700">
                     <span className="line-clamp-2">{reply.description}</span>
                   </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={reply.status} />
+                  </td>
                   <td className="px-4 py-3 text-right text-zinc-600">
                     {reply.likes}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
                     {new Date(reply.created_at).toLocaleDateString("ja-JP")}
+                  </td>
+                  <td className="px-4 py-3">
+                    <ToggleStatusButton
+                      id={reply.id}
+                      type="reply"
+                      currentStatus={
+                        reply.status === "hidden" ? "hidden" : "published"
+                      }
+                    />
                   </td>
                 </tr>
               ))}

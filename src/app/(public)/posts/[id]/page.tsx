@@ -32,6 +32,7 @@ type PostRow = {
   created_at: string;
   category: string | null;
   target_url: string | null;
+  status: string | null;
 };
 
 function mapRowToPost(row: PostRow): Post {
@@ -44,6 +45,7 @@ function mapRowToPost(row: PostRow): Post {
     createdAt: row.created_at,
     category: toCategory(row.category),
     targetUrl: row.target_url,
+    status: row.status === "hidden" ? "hidden" : "published",
   };
 }
 
@@ -127,7 +129,7 @@ export default function PostDetailPage() {
     void (async () => {
       const { data: postData, error: postError } = await supabase
         .from("posts")
-        .select("id, title, description, image_url, likes, created_at, category, target_url")
+        .select("id, title, description, image_url, likes, created_at, category, target_url, status")
         .eq("id", toDbId(postId))
         .single();
 
@@ -142,10 +144,18 @@ export default function PostDetailPage() {
         return;
       }
 
+      const mappedPost = mapRowToPost(postData as PostRow);
+      if (mappedPost.status === "hidden") {
+        setError("この投稿は現在表示できません。");
+        setLoading(false);
+        return;
+      }
+
       const { data: repliesData, error: repliesError } = await supabase
         .from("replies")
         .select("id, post_id, description, likes, created_at")
         .eq("post_id", toDbId(postId))
+        .eq("status", "published")
         .order("created_at", { ascending: true });
 
       if (repliesError) {
@@ -154,7 +164,7 @@ export default function PostDetailPage() {
         setReplies((repliesData ?? []).map((row) => mapRowToReply(row as ReplyRow)));
       }
 
-      setPost(mapRowToPost(postData as PostRow));
+      setPost(mappedPost);
       setLoading(false);
     })();
   }, [params.id]);
