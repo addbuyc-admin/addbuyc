@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { formatDateTime } from "@/lib/format";
 import { useEffect, useState } from "react";
 import { usePosts } from "@/context/PostsProvider";
 import { supabase } from "@/lib/supabase/client";
@@ -278,11 +279,7 @@ export default function PostDetailPage() {
                 <div className="flex items-center gap-2">
                   <CategoryBadge category={post.category} />
                   <time dateTime={post.createdAt}>
-                    {new Date(post.createdAt).toLocaleDateString(undefined, {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {formatDateTime(post.createdAt)}
                   </time>
                 </div>
                 <button
@@ -380,11 +377,7 @@ export default function PostDetailPage() {
                       </p>
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
                         <time dateTime={reply.createdAt}>
-                          {new Date(reply.createdAt).toLocaleDateString(undefined, {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
+                          {formatDateTime(reply.createdAt)}
                         </time>
                         <button
                           type="button"

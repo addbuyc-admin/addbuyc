@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { formatDateTime } from "@/lib/format";
 import { ToggleStatusButton } from "@/components/ToggleStatusButton";
 import { ReportStatusButton } from "@/components/ReportStatusButton";
 import { ReportNoteEditor } from "@/components/ReportNoteEditor";
@@ -94,6 +95,7 @@ async function getReplies(): Promise<ReplyRow[]> {
   return (data ?? []) as ReplyRow[];
 }
 
+
 function StatusBadge({ status }: { status: string }) {
   return (
     <span
@@ -103,7 +105,7 @@ function StatusBadge({ status }: { status: string }) {
           : "bg-red-50 text-red-700"
       }`}
     >
-      {status === "published" ? "公開中" : "非表示"}
+      {status === "published" ? "表示中" : "非表示"}
     </span>
   );
 }
@@ -170,13 +172,13 @@ function FilterTabs({
 
 const POST_STATUS_OPTIONS = [
   { value: "all", label: "すべて" },
-  { value: "published", label: "公開中" },
+  { value: "published", label: "表示中" },
   { value: "hidden", label: "非表示" },
 ];
 
 const REPLY_STATUS_OPTIONS = [
   { value: "all", label: "すべて" },
-  { value: "published", label: "公開中" },
+  { value: "published", label: "表示中" },
   { value: "hidden", label: "非表示" },
 ];
 
@@ -240,7 +242,7 @@ export default async function DashboardPage({ searchParams }: Props) {
       : reports.filter((r) => r.status === reportFilter);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
+    <div className="mx-auto max-w-6xl px-4 py-10">
       {/* ヘッダー */}
       <div className="mb-10 flex items-center justify-between">
         <div>
@@ -292,93 +294,6 @@ export default async function DashboardPage({ searchParams }: Props) {
         ))}
       </div>
 
-      {/* Posts */}
-      <section className="mb-12">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-zinc-900">
-            投稿{" "}
-            <span className="ml-1 text-sm font-normal text-zinc-500">
-              ({filteredPosts.length}/{posts.length}件)
-            </span>
-          </h2>
-          <FilterTabs
-            options={POST_STATUS_OPTIONS}
-            paramKey="postStatus"
-            current={postFilter}
-            currentParams={currentParams}
-          />
-        </div>
-        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-100 bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">タイトル</th>
-                <th className="px-4 py-3">カテゴリ</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Likes</th>
-                <th className="px-4 py-3">日時</th>
-                <th className="px-4 py-3">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {filteredPosts.map((post) => (
-                <tr
-                  key={post.id}
-                  className={
-                    post.status === "hidden"
-                      ? "bg-red-50/40 hover:bg-red-50/60"
-                      : "hover:bg-zinc-50/70"
-                  }
-                >
-                  <td className="px-4 py-3 text-zinc-400">{post.id}</td>
-                  <td className="max-w-xs px-4 py-3">
-                    <Link
-                      href={`/posts/${post.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`font-medium underline-offset-2 hover:underline ${
-                        post.status === "hidden"
-                          ? "text-zinc-400"
-                          : "text-zinc-900"
-                      }`}
-                    >
-                      {post.title}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-600">
-                    {post.category ?? "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={post.status} />
-                  </td>
-                  <td className="px-4 py-3 text-right text-zinc-600">
-                    {post.likes ?? 0}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
-                    {new Date(post.created_at).toLocaleDateString("ja-JP")}
-                  </td>
-                  <td className="px-4 py-3">
-                    <ToggleStatusButton
-                      id={post.id}
-                      type="post"
-                      currentStatus={
-                        post.status === "hidden" ? "hidden" : "published"
-                      }
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredPosts.length === 0 && (
-            <p className="px-4 py-10 text-center text-sm text-zinc-400">
-              該当する投稿なし
-            </p>
-          )}
-        </div>
-      </section>
-
       {/* Reports */}
       <section className="mb-12">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -399,19 +314,20 @@ export default async function DashboardPage({ searchParams }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-100 bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">対象</th>
-                <th className="px-4 py-3">対象ID</th>
-                <th className="px-4 py-3">理由</th>
-                <th className="px-4 py-3">補足</th>
-                <th className="px-4 py-3">状態</th>
-                <th className="px-4 py-3">通報日時</th>
-                <th className="px-4 py-3">対応日時</th>
-                <th className="px-4 py-3">操作</th>
+                <th className="w-12 px-4 py-3">ID</th>
+                <th className="w-14 px-4 py-3">対象</th>
+                <th className="w-16 px-4 py-3">対象ID</th>
+                <th className="w-28 px-4 py-3">理由</th>
+                <th className="min-w-[120px] px-4 py-3">補足</th>
+                <th className="w-20 px-4 py-3">状態</th>
+                <th className="w-40 px-4 py-3">通報日時</th>
+                <th className="w-40 px-4 py-3">対応日時</th>
+                <th className="w-36 px-4 py-3">操作</th>
               </tr>
             </thead>
             <tbody>
               {filteredReports.map((report) => {
+                const isOpen = report.status === "open";
                 const postId =
                   report.target_type === "post"
                     ? report.target_id
@@ -419,8 +335,16 @@ export default async function DashboardPage({ searchParams }: Props) {
                 return (
                   <Fragment key={report.id}>
                     {/* データ行 */}
-                    <tr className="border-t border-zinc-100 hover:bg-zinc-50/70">
-                      <td className="px-4 py-3 text-zinc-400">{report.id}</td>
+                    <tr
+                      className={`border-t border-zinc-100 ${
+                        isOpen
+                          ? "bg-amber-50/40 hover:bg-amber-50/60"
+                          : "hover:bg-zinc-50/70"
+                      }`}
+                    >
+                      <td className="px-4 py-3 text-xs text-zinc-400">
+                        {report.id}
+                      </td>
                       <td className="px-4 py-3">
                         <span
                           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -448,12 +372,12 @@ export default async function DashboardPage({ searchParams }: Props) {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-zinc-700">
+                      <td className="px-4 py-3 text-xs text-zinc-700">
                         {REASON_LABELS[report.reason] ?? report.reason}
                       </td>
-                      <td className="max-w-xs px-4 py-3 text-zinc-500">
+                      <td className="px-4 py-3">
                         {report.description ? (
-                          <span className="line-clamp-2">
+                          <span className="line-clamp-2 text-xs text-zinc-500">
                             {report.description}
                           </span>
                         ) : (
@@ -463,16 +387,12 @@ export default async function DashboardPage({ searchParams }: Props) {
                       <td className="px-4 py-3">
                         <ReportStatusBadge status={report.status} />
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
-                        {new Date(report.created_at).toLocaleDateString(
-                          "ja-JP",
-                        )}
+                      <td className="whitespace-nowrap px-4 py-3 text-xs text-zinc-500">
+                        {formatDateTime(report.created_at)}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
+                      <td className="whitespace-nowrap px-4 py-3 text-xs text-zinc-500">
                         {report.handled_at ? (
-                          new Date(report.handled_at).toLocaleDateString(
-                            "ja-JP",
-                          )
+                          formatDateTime(report.handled_at)
                         ) : (
                           <span className="text-zinc-300">—</span>
                         )}
@@ -491,11 +411,14 @@ export default async function DashboardPage({ searchParams }: Props) {
                       </td>
                     </tr>
                     {/* 管理メモ行 */}
-                    <tr className="border-b border-zinc-100 bg-zinc-50/50">
-                      <td
-                        colSpan={9}
-                        className="px-4 pb-3 pt-1"
-                      >
+                    <tr
+                      className={`border-b ${
+                        isOpen
+                          ? "border-amber-100 bg-amber-50/20"
+                          : "border-zinc-100 bg-zinc-50/50"
+                      }`}
+                    >
+                      <td colSpan={9} className="px-4 pb-3 pt-1">
                         <ReportNoteEditor
                           id={report.id}
                           initialNote={report.admin_note}
@@ -510,6 +433,95 @@ export default async function DashboardPage({ searchParams }: Props) {
           {filteredReports.length === 0 && (
             <p className="px-4 py-10 text-center text-sm text-zinc-400">
               該当する通報なし
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* Posts */}
+      <section className="mb-12">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-zinc-900">
+            投稿{" "}
+            <span className="ml-1 text-sm font-normal text-zinc-500">
+              ({filteredPosts.length}/{posts.length}件)
+            </span>
+          </h2>
+          <FilterTabs
+            options={POST_STATUS_OPTIONS}
+            paramKey="postStatus"
+            current={postFilter}
+            currentParams={currentParams}
+          />
+        </div>
+        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-zinc-100 bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
+                <th className="w-12 px-4 py-3">ID</th>
+                <th className="min-w-[180px] px-4 py-3">タイトル</th>
+                <th className="w-24 px-4 py-3">カテゴリ</th>
+                <th className="w-20 px-4 py-3">状態</th>
+                <th className="w-14 px-4 py-3 text-right">♥</th>
+                <th className="w-40 px-4 py-3">投稿日時</th>
+                <th className="w-28 px-4 py-3">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {filteredPosts.map((post) => (
+                <tr
+                  key={post.id}
+                  className={
+                    post.status === "hidden"
+                      ? "bg-red-50/40 hover:bg-red-50/60"
+                      : "hover:bg-zinc-50/70"
+                  }
+                >
+                  <td className="px-4 py-3 text-xs text-zinc-400">
+                    {post.id}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/posts/${post.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`font-medium underline-offset-2 hover:underline ${
+                        post.status === "hidden"
+                          ? "text-zinc-400"
+                          : "text-zinc-900"
+                      }`}
+                    >
+                      {post.title}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-zinc-500">
+                    {post.category ?? "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={post.status} />
+                  </td>
+                  <td className="px-4 py-3 text-right text-xs text-zinc-500">
+                    {post.likes ?? 0}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-zinc-500">
+                    {formatDateTime(post.created_at)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <ToggleStatusButton
+                      id={post.id}
+                      type="post"
+                      currentStatus={
+                        post.status === "hidden" ? "hidden" : "published"
+                      }
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filteredPosts.length === 0 && (
+            <p className="px-4 py-10 text-center text-sm text-zinc-400">
+              該当する投稿なし
             </p>
           )}
         </div>
@@ -535,13 +547,13 @@ export default async function DashboardPage({ searchParams }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-100 bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">Post ID</th>
-                <th className="px-4 py-3">内容</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Likes</th>
-                <th className="px-4 py-3">日時</th>
-                <th className="px-4 py-3">操作</th>
+                <th className="w-12 px-4 py-3">ID</th>
+                <th className="w-16 px-4 py-3">投稿</th>
+                <th className="min-w-[200px] px-4 py-3">内容</th>
+                <th className="w-20 px-4 py-3">状態</th>
+                <th className="w-14 px-4 py-3 text-right">♥</th>
+                <th className="w-40 px-4 py-3">投稿日時</th>
+                <th className="w-28 px-4 py-3">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -554,7 +566,9 @@ export default async function DashboardPage({ searchParams }: Props) {
                       : "hover:bg-zinc-50/70"
                   }
                 >
-                  <td className="px-4 py-3 text-zinc-400">{reply.id}</td>
+                  <td className="px-4 py-3 text-xs text-zinc-400">
+                    {reply.id}
+                  </td>
                   <td className="px-4 py-3">
                     <Link
                       href={`/posts/${reply.post_id}`}
@@ -565,17 +579,19 @@ export default async function DashboardPage({ searchParams }: Props) {
                       {reply.post_id}
                     </Link>
                   </td>
-                  <td className="max-w-sm px-4 py-3 text-zinc-700">
-                    <span className="line-clamp-2">{reply.description}</span>
+                  <td className="px-4 py-3">
+                    <span className="line-clamp-2 text-xs text-zinc-700">
+                      {reply.description}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={reply.status} />
                   </td>
-                  <td className="px-4 py-3 text-right text-zinc-600">
+                  <td className="px-4 py-3 text-right text-xs text-zinc-500">
                     {reply.likes}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
-                    {new Date(reply.created_at).toLocaleDateString("ja-JP")}
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-zinc-500">
+                    {formatDateTime(reply.created_at)}
                   </td>
                   <td className="px-4 py-3">
                     <ToggleStatusButton

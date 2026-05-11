@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Suspense } from "react";
+import { formatDateTime } from "@/lib/format";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePosts } from "@/context/PostsProvider";
 import { CategoryBadge } from "@/components/CategoryBadge";
@@ -167,11 +168,7 @@ function PostListWithFilter() {
                 </Link>
                 <CategoryBadge category={post.category} />
                 <time dateTime={post.createdAt}>
-                  {new Date(post.createdAt).toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}
+                  {formatDateTime(post.createdAt)}
                 </time>
                 <span className="ml-auto text-zinc-600">Likes: {post.likes}</span>
               </div>

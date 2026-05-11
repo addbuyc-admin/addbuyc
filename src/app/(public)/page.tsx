@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { formatDateTime } from "@/lib/format";
 import { useState } from "react";
 import { usePosts } from "@/context/PostsProvider";
 import { CATEGORIES } from "@/lib/categories";
@@ -153,11 +154,7 @@ export default function HomePage() {
                     </Link>
                     <CategoryBadge category={post.category} />
                     <time dateTime={post.createdAt} className="text-zinc-500">
-                      {new Date(post.createdAt).toLocaleDateString(undefined, {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {formatDateTime(post.createdAt)}
                     </time>
                     <span className="ml-auto text-zinc-600">Likes: {post.likes}</span>
                   </div>
