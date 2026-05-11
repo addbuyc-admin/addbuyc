@@ -29,13 +29,13 @@ export default function NewPostPage() {
         return;
       }
       if (!file.type.startsWith("image/")) {
-        setError("Please choose an image file.");
+        setError("画像ファイルを選択してください。");
         setImagePreview(null);
         setImageFileName(null);
         return;
       }
       if (file.size > 2 * 1024 * 1024) {
-        setError("Image must be 2MB or smaller for this MVP.");
+        setError("画像は2MB以下にしてください。");
         setImagePreview(null);
         setImageFileName(null);
         return;
@@ -63,7 +63,7 @@ export default function NewPostPage() {
     const t = title.trim();
     const d = description.trim();
     if (!t || !d) {
-      setError("Title and description are required.");
+      setError("相談タイトルと相談内容は必須です。");
       return;
     }
     if (submitLock.current) return;
@@ -80,7 +80,7 @@ export default function NewPostPage() {
       await refetchPosts();
       router.push("/posts");
     } catch {
-      setError("Failed to publish post. Please check Supabase settings.");
+      setError("投稿に失敗しました。しばらくしてから再度お試しください。");
       submitLock.current = false;
       setSubmitting(false);
     }
@@ -93,14 +93,13 @@ export default function NewPostPage() {
           href="/posts"
           className="text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
         >
-          ← Back to posts
+          ← 相談一覧へ戻る
         </Link>
         <h1 className="mt-6 text-3xl font-semibold tracking-tight text-zinc-900">
-          New post
+          相談を投稿する
         </h1>
         <p className="mt-2 text-[15px] text-zinc-500">
-          Add a title, details, and optionally an image. Posts are saved to
-          Supabase.
+          気になる商品・お店・ブランド品について、みんなに聞いてみましょう。
         </p>
       </div>
 
@@ -115,6 +114,9 @@ export default function NewPostPage() {
           >
             カテゴリ
           </label>
+          <p className="text-xs text-zinc-400">
+            相談内容に近いカテゴリを選んでください
+          </p>
           <select
             id="category"
             name="category"
@@ -138,7 +140,7 @@ export default function NewPostPage() {
             htmlFor="title"
             className="text-sm font-medium text-zinc-800"
           >
-            Title
+            相談タイトル
           </label>
           <input
             id="title"
@@ -146,7 +148,7 @@ export default function NewPostPage() {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="What is this about?"
+            placeholder="例：ルイヴィトンの財布は本物？ / AirPods Proを買うべき？"
             className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
             autoComplete="off"
           />
@@ -157,14 +159,14 @@ export default function NewPostPage() {
             htmlFor="description"
             className="text-sm font-medium text-zinc-800"
           >
-            Description
+            相談内容
           </label>
           <textarea
             id="description"
             name="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Share context, questions, or links…"
+            placeholder="気になっている点、購入予定の理由、不安な点、比較している商品などを書いてください"
             rows={6}
             className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
           />
@@ -189,13 +191,14 @@ export default function NewPostPage() {
             autoComplete="off"
           />
           <p className="text-xs text-zinc-400">
-            メルカリ・Yahoo!オークション・ブランド公式・飲食店サイトなどのURLを貼ってください。
+            商品ページ、店舗ページ、公式サイト、フリマ出品ページなどがあれば貼ってください
           </p>
         </div>
 
         <div className="space-y-2">
           <span className="text-sm font-medium text-zinc-800">
-            Image <span className="font-normal text-zinc-400">(optional)</span>
+            画像{" "}
+            <span className="font-normal text-zinc-400">（任意）</span>
           </span>
           <div className="flex flex-col gap-3">
             <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50/80 px-6 py-10 transition hover:border-zinc-300 hover:bg-zinc-50">
@@ -206,10 +209,10 @@ export default function NewPostPage() {
                 onChange={onFileChange}
               />
               <span className="text-sm font-medium text-zinc-700">
-                Click to upload
+                クリックしてアップロード
               </span>
               <span className="mt-1 text-xs text-zinc-400">
-                PNG, JPG, WebP up to 2MB
+                PNG・JPG・WebP・2MBまで
               </span>
             </label>
             {imageFileName && (
@@ -220,7 +223,7 @@ export default function NewPostPage() {
                   onClick={clearImage}
                   className="shrink-0 text-zinc-500 underline underline-offset-2 hover:text-zinc-900"
                 >
-                  Remove
+                  削除
                 </button>
               </div>
             )}
@@ -229,7 +232,7 @@ export default function NewPostPage() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={imagePreview}
-                  alt="Preview"
+                  alt="プレビュー"
                   className="max-h-64 w-full object-cover"
                 />
               </div>
@@ -247,15 +250,15 @@ export default function NewPostPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
+            className="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {submitting ? "Publishing..." : "Publish post"}
+            {submitting ? "投稿中…" : "投稿する"}
           </button>
           <Link
             href="/posts"
             className="rounded-full border border-zinc-200 bg-white px-6 py-2.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
           >
-            Cancel
+            キャンセル
           </Link>
         </div>
       </form>
