@@ -145,18 +145,20 @@ export default function HomePage() {
                   key={post.id}
                   className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition hover:shadow-md sm:px-5"
                 >
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                  <div className="flex flex-col gap-1.5">
                     <Link
                       href={`/posts/${post.id}`}
-                      className="min-w-0 flex-1 text-base font-semibold tracking-tight text-zinc-900 underline-offset-4 hover:underline"
+                      className="text-base font-semibold tracking-tight text-zinc-900 underline-offset-4 hover:underline"
                     >
                       {post.title}
                     </Link>
-                    <CategoryBadge category={post.category} />
-                    <time dateTime={post.createdAt} className="text-zinc-500">
-                      {formatDateTime(post.createdAt)}
-                    </time>
-                    <span className="ml-auto text-zinc-600">Likes: {post.likes}</span>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
+                      <CategoryBadge category={post.category} />
+                      <time dateTime={post.createdAt}>
+                        {formatDateTime(post.createdAt)}
+                      </time>
+                      <span className="text-zinc-600">Likes: {post.likes}</span>
+                    </div>
                   </div>
                 </li>
               ))}
