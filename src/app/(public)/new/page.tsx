@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { usePosts } from "@/context/PostsProvider";
 import { CATEGORIES, type CategorySlug } from "@/lib/categories";
+import { supabase } from "@/lib/supabase/client";
 
 export default function NewPostPage() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function NewPostPage() {
   const [targetUrl, setTargetUrl] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFileName, setImageFileName] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const submitLock = useRef(false);
@@ -26,21 +28,18 @@ export default function NewPostPage() {
       if (!file) {
         setImagePreview(null);
         setImageFileName(null);
+        setImageFile(null);
         return;
       }
       if (!file.type.startsWith("image/")) {
         setError("画像ファイルを選択してください。");
         setImagePreview(null);
         setImageFileName(null);
-        return;
-      }
-      if (file.size > 2 * 1024 * 1024) {
-        setError("画像は2MB以下にしてください。");
-        setImagePreview(null);
-        setImageFileName(null);
+        setImageFile(null);
         return;
       }
       setImageFileName(file.name);
+      setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result;
@@ -54,8 +53,45 @@ export default function NewPostPage() {
   const clearImage = useCallback(() => {
     setImagePreview(null);
     setImageFileName(null);
+    setImageFile(null);
     setError(null);
   }, []);
+
+  function compressImage(file: File): Promise<Blob> {
+    const MAX_DIM = 1600;
+    const QUALITY = 0.82;
+    const MAX_SIZE = 2 * 1024 * 1024;
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const ratio = Math.min(MAX_DIM / img.width, MAX_DIM / img.height, 1);
+        const w = Math.round(img.width * ratio);
+        const h = Math.round(img.height * ratio);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("canvas unavailable")); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { reject(new Error("compression failed")); return; }
+            if (blob.size > MAX_SIZE) { reject(new Error("IMAGE_TOO_LARGE")); return; }
+            resolve(blob);
+          },
+          "image/webp",
+          QUALITY,
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error("load failed"));
+      };
+      img.src = objectUrl;
+    });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,11 +105,42 @@ export default function NewPostPage() {
     if (submitLock.current) return;
     submitLock.current = true;
     setSubmitting(true);
+
+    let uploadedImageUrl: string | null = null;
+    if (imageFile) {
+      try {
+        const blob = await compressImage(imageFile);
+        const fileName = `posts/${crypto.randomUUID()}.webp`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, blob, { contentType: "image/webp", upsert: false });
+        if (uploadError) {
+          setError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
+          submitLock.current = false;
+          setSubmitting(false);
+          return;
+        }
+        const { data: urlData } = supabase.storage
+          .from("post-images")
+          .getPublicUrl(uploadData.path);
+        uploadedImageUrl = urlData.publicUrl;
+      } catch (err) {
+        if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
+          setError("圧縮後も画像が2MBを超えています。より小さい画像を選んでください。");
+        } else {
+          setError("画像の処理に失敗しました。別の画像をお試しください。");
+        }
+        submitLock.current = false;
+        setSubmitting(false);
+        return;
+      }
+    }
+
     try {
       await addPost({
         title: t,
         description: d,
-        imageUrl: imagePreview,
+        imageUrl: uploadedImageUrl,
         category,
         targetUrl: targetUrl.trim() || null,
       });
@@ -212,7 +279,7 @@ export default function NewPostPage() {
                 クリックしてアップロード
               </span>
               <span className="mt-1 text-xs text-zinc-400">
-                PNG・JPG・WebP・2MBまで
+                PNG・JPG・WebP対応。大きい画像は自動で圧縮されます。
               </span>
             </label>
             {imageFileName && (

@@ -27,6 +27,7 @@ type PostRow = {
   id: number;
   title: string;
   description: string;
+  image_url: string | null;
   category: string | null;
   likes: number | null;
   created_at: string;
@@ -59,7 +60,7 @@ async function getPosts(): Promise<PostRow[]> {
   const { data, error } = await supabase
     .from("posts")
     .select(
-      "id, title, description, category, likes, created_at, target_url, status",
+      "id, title, description, image_url, category, likes, created_at, target_url, status",
     )
     .order("created_at", { ascending: false });
   if (error) {
@@ -481,18 +482,28 @@ export default async function DashboardPage({ searchParams }: Props) {
                     {post.id}
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/posts/${post.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`font-medium underline-offset-2 hover:underline ${
-                        post.status === "hidden"
-                          ? "text-zinc-400"
-                          : "text-zinc-900"
-                      }`}
-                    >
-                      {post.title}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      {post.image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={post.image_url}
+                          alt=""
+                          className="h-8 w-8 shrink-0 rounded object-cover"
+                        />
+                      )}
+                      <Link
+                        href={`/posts/${post.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`font-medium underline-offset-2 hover:underline ${
+                          post.status === "hidden"
+                            ? "text-zinc-400"
+                            : "text-zinc-900"
+                        }`}
+                      >
+                        {post.title}
+                      </Link>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-xs text-zinc-500">
                     {post.category ?? "—"}
