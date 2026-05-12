@@ -293,7 +293,6 @@ export default function PostDetailPage() {
                     ♥
                   </span>
                   <span>{post.likes}</span>
-                  {likedPosts.has(String(post.id)) && <span>Liked</span>}
                 </button>
               </div>
               <p className="mt-6 whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
@@ -390,7 +389,6 @@ export default function PostDetailPage() {
                             ♥
                           </span>
                           <span>{reply.likes}</span>
-                          {likedReplies.has(reply.id) && <span>Liked</span>}
                         </button>
                       </div>
                       <div className="mt-2 flex justify-end">
