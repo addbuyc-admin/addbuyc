@@ -14,8 +14,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AddBuy+C — Forum",
-  description: "A minimal web forum built with Next.js",
+  title: {
+    default: "AddBuy+C｜買う前に、ひとりで迷わない。",
+    template: "%s | AddBuy+C",
+  },
+  description:
+    "ファッション・コスメ・ガジェット・グルメまで、気になる商品やお店について相談できるコミュニティです。",
+  alternates: { canonical: "https://addbuyc.com" },
+  openGraph: {
+    title: "AddBuy+C｜買う前に、ひとりで迷わない。",
+    description:
+      "ファッション・コスメ・ガジェット・グルメまで、気になる商品やお店について相談できるコミュニティです。",
+    url: "https://addbuyc.com",
+    siteName: "AddBuy+C",
+    locale: "ja_JP",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "AddBuy+C｜買う前に、ひとりで迷わない。",
+    description:
+      "ファッション・コスメ・ガジェット・グルメまで、気になる商品やお店について相談できるコミュニティです。",
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({
@@ -24,7 +45,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ja">
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-white font-sans antialiased`}
       >
