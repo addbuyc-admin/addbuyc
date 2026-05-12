@@ -244,7 +244,7 @@ export default function NewPostPage() {
                 クリックしてアップロード
               </span>
               <span className="mt-1 text-xs text-zinc-400">
-                PNG・JPG・WebP対応。大きい画像は自動で圧縮されます。
+                PNG・JPG・WebP
               </span>
             </label>
             {imageFileName && (
