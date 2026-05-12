@@ -5,6 +5,7 @@ import { formatDateTime } from "@/lib/format";
 import { ToggleStatusButton } from "@/components/ToggleStatusButton";
 import { ReportStatusButton } from "@/components/ReportStatusButton";
 import { ReportNoteEditor } from "@/components/ReportNoteEditor";
+import { LinkedText } from "@/components/LinkedText";
 
 const REASON_LABELS: Record<string, string> = {
   spam: "スパム",
@@ -39,6 +40,7 @@ type ReplyRow = {
   id: number;
   post_id: number;
   description: string;
+  image_url: string | null;
   likes: number;
   created_at: string;
   status: string;
@@ -87,7 +89,7 @@ async function getReports(): Promise<ReportRow[]> {
 async function getReplies(): Promise<ReplyRow[]> {
   const { data, error } = await supabase
     .from("replies")
-    .select("id, post_id, description, likes, created_at, status")
+    .select("id, post_id, description, image_url, likes, created_at, status")
     .order("created_at", { ascending: false });
   if (error) {
     console.error("Dashboard: failed to load replies:", error.message);
@@ -591,9 +593,19 @@ export default async function DashboardPage({ searchParams }: Props) {
                     </Link>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="line-clamp-2 text-xs text-zinc-700">
-                      {reply.description}
-                    </span>
+                    <div className="flex items-start gap-2">
+                      {reply.image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={reply.image_url}
+                          alt=""
+                          className="h-8 w-8 shrink-0 rounded object-cover"
+                        />
+                      )}
+                      <span className="line-clamp-2 text-xs text-zinc-700">
+                        <LinkedText text={reply.description} />
+                      </span>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={reply.status} />

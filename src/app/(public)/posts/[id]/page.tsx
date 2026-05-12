@@ -6,6 +6,8 @@ import { formatDateTime } from "@/lib/format";
 import { useEffect, useState } from "react";
 import { usePosts } from "@/context/PostsProvider";
 import { supabase } from "@/lib/supabase/client";
+import { compressImage } from "@/lib/compress-image";
+import { LinkedText } from "@/components/LinkedText";
 import type { Post } from "@/lib/types";
 import type { CategorySlug } from "@/lib/categories";
 import { CategoryBadge } from "@/components/CategoryBadge";
@@ -55,6 +57,7 @@ type Reply = {
   id: string;
   postId: string;
   description: string;
+  imageUrl: string | null;
   likes: number;
   createdAt: string;
 };
@@ -63,6 +66,7 @@ type ReplyRow = {
   id: number | string;
   post_id: number | string;
   description: string;
+  image_url: string | null;
   likes: number;
   created_at: string;
 };
@@ -72,6 +76,7 @@ function mapRowToReply(row: ReplyRow): Reply {
     id: String(row.id),
     postId: String(row.post_id),
     description: row.description,
+    imageUrl: row.image_url ?? null,
     likes: row.likes,
     createdAt: row.created_at,
   };
@@ -108,6 +113,9 @@ export default function PostDetailPage() {
   const [post, setPost] = useState<Post | null>(null);
   const [replies, setReplies] = useState<Reply[]>([]);
   const [replyBody, setReplyBody] = useState("");
+  const [replyImageFile, setReplyImageFile] = useState<File | null>(null);
+  const [replyImagePreview, setReplyImagePreview] = useState<string | null>(null);
+  const [replyImageFileName, setReplyImageFileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [replyError, setReplyError] = useState<string | null>(null);
@@ -155,7 +163,7 @@ export default function PostDetailPage() {
 
       const { data: repliesData, error: repliesError } = await supabase
         .from("replies")
-        .select("id, post_id, description, likes, created_at")
+        .select("id, post_id, description, image_url, likes, created_at")
         .eq("post_id", toDbId(postId))
         .eq("status", "published")
         .order("created_at", { ascending: true });
@@ -221,35 +229,98 @@ export default function PostDetailPage() {
     });
   }
 
+  function onReplyFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    setReplyError(null);
+    if (!file) {
+      setReplyImageFile(null);
+      setReplyImagePreview(null);
+      setReplyImageFileName(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setReplyError("画像ファイルを選択してください。");
+      setReplyImageFile(null);
+      setReplyImagePreview(null);
+      setReplyImageFileName(null);
+      return;
+    }
+    setReplyImageFile(file);
+    setReplyImageFileName(file.name);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result;
+      if (typeof result === "string") setReplyImagePreview(result);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearReplyImage() {
+    setReplyImageFile(null);
+    setReplyImagePreview(null);
+    setReplyImageFileName(null);
+  }
+
   async function handleReplySubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const body = replyBody.trim();
     if (!body) {
-      setReplyError("Reply text is required.");
+      setReplyError("返信内容を入力してください。");
       return;
     }
     if (!post) return;
     setReplyError(null);
     setSubmittingReply(true);
+
+    let uploadedImageUrl: string | null = null;
+    if (replyImageFile) {
+      try {
+        const blob = await compressImage(replyImageFile);
+        const fileName = `replies/${crypto.randomUUID()}.webp`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, blob, { contentType: "image/webp", upsert: false });
+        if (uploadError) {
+          setReplyError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
+          setSubmittingReply(false);
+          return;
+        }
+        const { data: urlData } = supabase.storage
+          .from("post-images")
+          .getPublicUrl(uploadData.path);
+        uploadedImageUrl = urlData.publicUrl;
+      } catch (err) {
+        if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
+          setReplyError("圧縮後も画像が2MBを超えています。より小さい画像を選んでください。");
+        } else {
+          setReplyError("画像の処理に失敗しました。別の画像をお試しください。");
+        }
+        setSubmittingReply(false);
+        return;
+      }
+    }
+
     const { data, error: insertError } = await supabase
       .from("replies")
       .insert({
         post_id: toDbId(String(post.id)),
         description: body,
+        image_url: uploadedImageUrl,
         likes: 0,
       })
-      .select("id, post_id, description, likes, created_at")
+      .select("id, post_id, description, image_url, likes, created_at")
       .single();
 
     if (insertError) {
       console.error("Failed to post reply:", insertError.message);
-      setReplyError("Failed to post reply.");
+      setReplyError("返信の投稿に失敗しました。");
       setSubmittingReply(false);
       return;
     }
 
     setReplies((prev) => [...prev, mapRowToReply(data as ReplyRow)]);
     setReplyBody("");
+    clearReplyImage();
     setSubmittingReply(false);
   }
 
@@ -296,7 +367,7 @@ export default function PostDetailPage() {
                 </button>
               </div>
               <p className="mt-6 whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
-                {post.description}
+                <LinkedText text={post.description} />
               </p>
               {post.targetUrl && (
                 <div className="mt-4 border-t border-zinc-100 pt-4">
@@ -337,9 +408,39 @@ export default function PostDetailPage() {
                 value={replyBody}
                 onChange={(e) => setReplyBody(e.target.value)}
                 rows={4}
-                placeholder="Write your reply..."
+                placeholder="返信を書く…"
                 className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
               />
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="cursor-pointer rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={onReplyFileChange}
+                  />
+                  {replyImageFileName ? replyImageFileName : "画像を添付（任意）"}
+                </label>
+                {replyImageFileName && (
+                  <button
+                    type="button"
+                    onClick={clearReplyImage}
+                    className="text-sm text-zinc-500 underline underline-offset-2 hover:text-zinc-900"
+                  >
+                    削除
+                  </button>
+                )}
+              </div>
+              {replyImagePreview && (
+                <div className="overflow-hidden rounded-xl border border-zinc-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={replyImagePreview}
+                    alt="プレビュー"
+                    className="max-h-40 w-full object-cover"
+                  />
+                </div>
+              )}
               {replyError && (
                 <p className="text-sm text-red-600" role="alert">
                   {replyError}
@@ -350,7 +451,7 @@ export default function PostDetailPage() {
                 disabled={submittingReply}
                 className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {submittingReply ? "Posting..." : "Post reply"}
+                {submittingReply ? "投稿中..." : "返信する"}
               </button>
             </form>
           </section>
@@ -372,8 +473,18 @@ export default function PostDetailPage() {
                   >
                     <div className="border-l-2 border-zinc-200 pl-4">
                       <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
-                        {reply.description}
+                        <LinkedText text={reply.description} />
                       </p>
+                      {reply.imageUrl && (
+                        <div className="mt-3 overflow-hidden rounded-xl border border-zinc-200">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={reply.imageUrl}
+                            alt=""
+                            className="max-h-[400px] w-full object-cover"
+                          />
+                        </div>
+                      )}
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
                         <time dateTime={reply.createdAt}>
                           {formatDateTime(reply.createdAt)}
