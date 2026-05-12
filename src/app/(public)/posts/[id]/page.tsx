@@ -122,11 +122,21 @@ export default function PostDetailPage() {
   const [submittingReply, setSubmittingReply] = useState(false);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [likedReplies, setLikedReplies] = useState<Set<string>>(new Set());
+  const [modalSrc, setModalSrc] = useState<string | null>(null);
 
   useEffect(() => {
     setLikedPosts(readLikedSet(LIKED_POSTS_KEY));
     setLikedReplies(readLikedSet(LIKED_REPLIES_KEY));
   }, []);
+
+  useEffect(() => {
+    if (!modalSrc) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setModalSrc(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [modalSrc]);
 
   useEffect(() => {
     const postId = params.id;
@@ -342,6 +352,7 @@ export default function PostDetailPage() {
       ) : post ? (
         <div className="mt-6 space-y-6">
           <article className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+            {/* タイトル・カテゴリ+日時+Like・対象URL・本文 */}
             <div className="p-6">
               <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
                 {post.title}
@@ -366,11 +377,8 @@ export default function PostDetailPage() {
                   <span>{post.likes}</span>
                 </button>
               </div>
-              <p className="mt-6 whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
-                <LinkedText text={post.description} />
-              </p>
               {post.targetUrl && (
-                <div className="mt-4 border-t border-zinc-100 pt-4">
+                <div className="mt-4">
                   <p className="text-xs font-medium text-zinc-500">対象URL</p>
                   <a
                     href={post.targetUrl}
@@ -382,21 +390,32 @@ export default function PostDetailPage() {
                   </a>
                 </div>
               )}
-              <div className="mt-4 flex justify-end border-t border-zinc-100 pt-3">
-                <ReportButton targetType="post" targetId={String(post.id)} />
-              </div>
+              <p className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
+                <LinkedText text={post.description} />
+              </p>
             </div>
 
+            {/* 投稿画像（クリックで拡大） */}
             {post.imageUrl && (
-              <div className="border-t border-zinc-200">
+              <button
+                type="button"
+                className="block w-full cursor-zoom-in border-t border-zinc-200"
+                onClick={() => setModalSrc(post.imageUrl!)}
+                aria-label="画像を拡大表示"
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={post.imageUrl}
                   alt=""
                   className="max-h-[500px] w-full object-cover"
                 />
-              </div>
+              </button>
             )}
+
+            {/* 通報ボタン */}
+            <div className="flex justify-end border-t border-zinc-100 px-6 py-3">
+              <ReportButton targetType="post" targetId={String(post.id)} />
+            </div>
           </article>
 
           <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -419,7 +438,7 @@ export default function PostDetailPage() {
                     className="sr-only"
                     onChange={onReplyFileChange}
                   />
-                  {replyImageFileName ? replyImageFileName : "画像を添付（任意）"}
+                  {replyImageFileName ? replyImageFileName : "画像（任意）"}
                 </label>
                 {replyImageFileName && (
                   <button
@@ -476,14 +495,19 @@ export default function PostDetailPage() {
                         <LinkedText text={reply.description} />
                       </p>
                       {reply.imageUrl && (
-                        <div className="mt-3 overflow-hidden rounded-xl border border-zinc-200">
+                        <button
+                          type="button"
+                          className="mt-3 block w-full cursor-zoom-in overflow-hidden rounded-xl border border-zinc-200"
+                          onClick={() => setModalSrc(reply.imageUrl!)}
+                          aria-label="画像を拡大表示"
+                        >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={reply.imageUrl}
                             alt=""
                             className="max-h-[400px] w-full object-cover"
                           />
-                        </div>
+                        </button>
                       )}
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
                         <time dateTime={reply.createdAt}>
@@ -513,6 +537,35 @@ export default function PostDetailPage() {
           </section>
         </div>
       ) : null}
+
+      {modalSrc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setModalSrc(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setModalSrc(null)}
+              className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-zinc-700 shadow-md transition hover:bg-zinc-100"
+              aria-label="閉じる"
+            >
+              ✕
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={modalSrc}
+              alt=""
+              className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
