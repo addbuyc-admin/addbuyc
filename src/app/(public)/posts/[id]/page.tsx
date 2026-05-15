@@ -58,6 +58,7 @@ type Reply = {
   postId: string;
   description: string;
   imageUrl: string | null;
+  isBestAnswer: boolean;
   likes: number;
   createdAt: string;
 };
@@ -67,6 +68,7 @@ type ReplyRow = {
   post_id: number | string;
   description: string;
   image_url: string | null;
+  is_best_answer: boolean;
   likes: number;
   created_at: string;
 };
@@ -77,6 +79,7 @@ function mapRowToReply(row: ReplyRow): Reply {
     postId: String(row.post_id),
     description: row.description,
     imageUrl: row.image_url ?? null,
+    isBestAnswer: row.is_best_answer ?? false,
     likes: row.likes,
     createdAt: row.created_at,
   };
@@ -173,7 +176,7 @@ export default function PostDetailPage() {
 
       const { data: repliesData, error: repliesError } = await supabase
         .from("replies")
-        .select("id, post_id, description, image_url, likes, created_at")
+        .select("id, post_id, description, image_url, is_best_answer, likes, created_at")
         .eq("post_id", toDbId(postId))
         .eq("status", "published")
         .order("created_at", { ascending: true });
@@ -181,7 +184,14 @@ export default function PostDetailPage() {
       if (repliesError) {
         setReplyError("Failed to load replies.");
       } else {
-        setReplies((repliesData ?? []).map((row) => mapRowToReply(row as ReplyRow)));
+        const mapped = (repliesData ?? []).map((row) => mapRowToReply(row as ReplyRow));
+        // ベストアンサーを先頭に、それ以外は投稿日時昇順を維持
+        mapped.sort((a, b) => {
+          if (a.isBestAnswer && !b.isBestAnswer) return -1;
+          if (!a.isBestAnswer && b.isBestAnswer) return 1;
+          return 0;
+        });
+        setReplies(mapped);
       }
 
       setPost(mappedPost);
@@ -488,9 +498,23 @@ export default function PostDetailPage() {
                 {replies.map((reply) => (
                   <li
                     key={reply.id}
-                    className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+                    className={`rounded-2xl border bg-white p-4 shadow-sm ${
+                      reply.isBestAnswer
+                        ? "border-amber-200"
+                        : "border-zinc-200"
+                    }`}
                   >
-                    <div className="border-l-2 border-zinc-200 pl-4">
+                    <div className={`border-l-2 pl-4 ${reply.isBestAnswer ? "border-amber-300" : "border-zinc-200"}`}>
+                      {reply.isBestAnswer && (
+                        <div className="mb-3">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src="/badges/best-answer.png"
+                            alt="ベストアンサー"
+                            className="h-8 w-auto object-contain"
+                          />
+                        </div>
+                      )}
                       <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
                         <LinkedText text={reply.description} />
                       </p>
