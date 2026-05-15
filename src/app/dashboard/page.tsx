@@ -3,6 +3,7 @@ import { Fragment } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { formatDateTime } from "@/lib/format";
 import { ToggleStatusButton } from "@/components/ToggleStatusButton";
+import { ToggleBestAnswerButton } from "@/components/ToggleBestAnswerButton";
 import { ReportStatusButton } from "@/components/ReportStatusButton";
 import { ReportNoteEditor } from "@/components/ReportNoteEditor";
 import { LinkedText } from "@/components/LinkedText";
@@ -41,6 +42,7 @@ type ReplyRow = {
   post_id: number;
   description: string;
   image_url: string | null;
+  is_best_answer: boolean;
   likes: number;
   created_at: string;
   status: string;
@@ -89,7 +91,7 @@ async function getReports(): Promise<ReportRow[]> {
 async function getReplies(): Promise<ReplyRow[]> {
   const { data, error } = await supabase
     .from("replies")
-    .select("id, post_id, description, image_url, likes, created_at, status")
+    .select("id, post_id, description, image_url, is_best_answer, likes, created_at, status")
     .order("created_at", { ascending: false });
   if (error) {
     console.error("Dashboard: failed to load replies:", error.message);
@@ -608,7 +610,17 @@ export default async function DashboardPage({ searchParams }: Props) {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge status={reply.status} />
+                    <div className="flex flex-col gap-1">
+                      <StatusBadge status={reply.status} />
+                      {reply.is_best_answer && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src="/badges/best-answer.png"
+                          alt="ベストアンサー"
+                          className="h-8 w-auto object-contain"
+                        />
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-right text-xs text-zinc-500">
                     {reply.likes}
@@ -617,13 +629,20 @@ export default async function DashboardPage({ searchParams }: Props) {
                     {formatDateTime(reply.created_at)}
                   </td>
                   <td className="px-4 py-3">
-                    <ToggleStatusButton
-                      id={reply.id}
-                      type="reply"
-                      currentStatus={
-                        reply.status === "hidden" ? "hidden" : "published"
-                      }
-                    />
+                    <div className="flex flex-col gap-1.5">
+                      <ToggleStatusButton
+                        id={reply.id}
+                        type="reply"
+                        currentStatus={
+                          reply.status === "hidden" ? "hidden" : "published"
+                        }
+                      />
+                      <ToggleBestAnswerButton
+                        replyId={reply.id}
+                        postId={reply.post_id}
+                        isBestAnswer={reply.is_best_answer}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}
