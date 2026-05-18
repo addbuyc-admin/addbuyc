@@ -615,7 +615,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                       {reply.is_best_answer && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src="/badges/best-answer.png"
+                          src="/badges/best-answer01.png"
                           alt="ベストアンサー"
                           className="h-8 w-auto object-contain"
                         />
