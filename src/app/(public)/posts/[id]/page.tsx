@@ -509,7 +509,7 @@ export default function PostDetailPage() {
                         <div className="mb-3">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src="/badges/best-answer.png"
+                            src="/badges/best-answer01.png"
                             alt="ベストアンサー"
                             className="h-8 w-auto object-contain"
                           />
