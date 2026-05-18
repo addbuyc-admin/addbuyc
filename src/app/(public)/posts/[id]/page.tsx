@@ -506,12 +506,12 @@ export default function PostDetailPage() {
                   >
                     <div className={`border-l-2 pl-4 ${reply.isBestAnswer ? "border-amber-300" : "border-zinc-200"}`}>
                       {reply.isBestAnswer && (
-                        <div className="mb-3">
+                        <div className="mb-4">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src="/badges/best-answer01.png"
                             alt="ベストアンサー"
-                            className="h-8 w-auto object-contain"
+                            className="h-12 w-auto object-contain"
                           />
                         </div>
                       )}
