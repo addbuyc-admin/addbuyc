@@ -617,7 +617,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                         <img
                           src="/badges/best-answer01.png"
                           alt="ベストアンサー"
-                          className="h-8 w-auto object-contain"
+                          className="h-12 w-auto object-contain"
                         />
                       )}
                     </div>
