@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { formatDateTime } from "@/lib/format";
 import { useEffect, useState } from "react";
 import { usePosts } from "@/context/PostsProvider";
+import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compress-image";
 import { LinkedText } from "@/components/LinkedText";
@@ -113,6 +114,7 @@ function writeLikedSet(key: string, values: Set<string>) {
 export default function PostDetailPage() {
   const params = useParams<{ id: string }>();
   const { likePost } = usePosts();
+  const { user } = useAuth();
   const [post, setPost] = useState<Post | null>(null);
   const [replies, setReplies] = useState<Reply[]>([]);
   const [replyBody, setReplyBody] = useState("");
@@ -327,6 +329,7 @@ export default function PostDetailPage() {
         description: body,
         image_url: uploadedImageUrl,
         likes: 0,
+        user_id: user?.id ?? null,
       })
       .select("id, post_id, description, image_url, likes, created_at")
       .single();
