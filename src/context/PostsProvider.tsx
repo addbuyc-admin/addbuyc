@@ -12,6 +12,7 @@ import {
 import type { Post } from "@/lib/types";
 import type { CategorySlug } from "@/lib/categories";
 import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/context/AuthProvider";
 
 type PostsContextValue = {
   posts: Post[];
@@ -68,6 +69,8 @@ function mapRowToPost(row: PostRow): Post {
 }
 
 export function PostsProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [posts, setPosts] = useState<Post[]>([]);
   const [ready, setReady] = useState(false);
 
@@ -108,6 +111,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
           likes: 0,
           category: input.category,
           target_url: input.targetUrl,
+          user_id: userId,
         })
         .select("id, title, description, image_url, likes, created_at, category, target_url, status")
         .single();
@@ -117,7 +121,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
       }
       setPosts((prev) => [mapRowToPost(data as PostRow), ...prev]);
     },
-    [],
+    [userId],
   );
 
   const likePost = useCallback(async (id: string) => {
