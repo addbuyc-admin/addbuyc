@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { formatDateTime } from "@/lib/format";
 import { useEffect, useState } from "react";
 import { usePosts } from "@/context/PostsProvider";
@@ -62,6 +62,7 @@ type Reply = {
   isBestAnswer: boolean;
   likes: number;
   createdAt: string;
+  userId: string | null;
 };
 
 type ReplyRow = {
@@ -72,6 +73,7 @@ type ReplyRow = {
   is_best_answer: boolean;
   likes: number;
   created_at: string;
+  user_id?: string | null;
 };
 
 function mapRowToReply(row: ReplyRow): Reply {
@@ -83,6 +85,7 @@ function mapRowToReply(row: ReplyRow): Reply {
     isBestAnswer: row.is_best_answer ?? false,
     likes: row.likes,
     createdAt: row.created_at,
+    userId: row.user_id ?? null,
   };
 }
 
@@ -113,9 +116,11 @@ function writeLikedSet(key: string, values: Set<string>) {
 
 export default function PostDetailPage() {
   const params = useParams<{ id: string }>();
-  const { likePost } = usePosts();
+  const router = useRouter();
+  const { likePost, refetchPosts } = usePosts();
   const { user } = useAuth();
   const [post, setPost] = useState<Post | null>(null);
+  const [postUserId, setPostUserId] = useState<string | null>(null);
   const [replies, setReplies] = useState<Reply[]>([]);
   const [replyBody, setReplyBody] = useState("");
   const [replyImageFile, setReplyImageFile] = useState<File | null>(null);
@@ -125,6 +130,8 @@ export default function PostDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [replyError, setReplyError] = useState<string | null>(null);
   const [submittingReply, setSubmittingReply] = useState(false);
+  const [deletingPost, setDeletingPost] = useState(false);
+  const [deletingReplyId, setDeletingReplyId] = useState<string | null>(null);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [likedReplies, setLikedReplies] = useState<Set<string>>(new Set());
   const [modalSrc, setModalSrc] = useState<string | null>(null);
@@ -154,7 +161,7 @@ export default function PostDetailPage() {
     void (async () => {
       const { data: postData, error: postError } = await supabase
         .from("posts")
-        .select("id, title, description, image_url, likes, created_at, category, target_url, status")
+        .select("id, title, description, image_url, likes, created_at, category, target_url, status, user_id")
         .eq("id", toDbId(postId))
         .single();
 
@@ -169,7 +176,8 @@ export default function PostDetailPage() {
         return;
       }
 
-      const mappedPost = mapRowToPost(postData as PostRow);
+      const rawPost = postData as PostRow & { user_id: string | null };
+      const mappedPost = mapRowToPost(rawPost);
       if (mappedPost.status === "hidden") {
         setError("この投稿は現在表示できません。");
         setLoading(false);
@@ -178,7 +186,7 @@ export default function PostDetailPage() {
 
       const { data: repliesData, error: repliesError } = await supabase
         .from("replies")
-        .select("id, post_id, description, image_url, is_best_answer, likes, created_at")
+        .select("id, post_id, description, image_url, is_best_answer, likes, created_at, user_id")
         .eq("post_id", toDbId(postId))
         .eq("status", "published")
         .order("created_at", { ascending: true });
@@ -197,6 +205,7 @@ export default function PostDetailPage() {
       }
 
       setPost(mappedPost);
+      setPostUserId(rawPost.user_id ?? null);
       setLoading(false);
     })();
   }, [params.id]);
@@ -283,6 +292,50 @@ export default function PostDetailPage() {
     setReplyImageFileName(null);
   }
 
+  async function handleDeletePost() {
+    if (!post || !user?.id || deletingPost) return;
+    const confirmed = window.confirm(
+      "この投稿を削除しますか？削除すると一覧や詳細画面には表示されなくなります。",
+    );
+    if (!confirmed) return;
+    setDeletingPost(true);
+    const { error: deleteError } = await supabase
+      .from("posts")
+      .update({ status: "hidden" })
+      .eq("id", toDbId(String(post.id)))
+      .eq("user_id", user.id);
+    if (deleteError) {
+      console.error("Failed to delete post:", deleteError.message);
+      alert("投稿の削除に失敗しました。しばらくしてから再度お試しください。");
+      setDeletingPost(false);
+      return;
+    }
+    await refetchPosts();
+    router.push("/posts");
+  }
+
+  async function handleDeleteReply(replyId: string) {
+    if (!user?.id || deletingReplyId) return;
+    const confirmed = window.confirm(
+      "この返信を削除しますか？削除すると画面には表示されなくなります。",
+    );
+    if (!confirmed) return;
+    setDeletingReplyId(replyId);
+    const { error: deleteError } = await supabase
+      .from("replies")
+      .update({ status: "hidden" })
+      .eq("id", toDbId(replyId))
+      .eq("user_id", user.id);
+    if (deleteError) {
+      console.error("Failed to delete reply:", deleteError.message);
+      alert("返信の削除に失敗しました。しばらくしてから再度お試しください。");
+      setDeletingReplyId(null);
+      return;
+    }
+    setReplies((prev) => prev.filter((r) => r.id !== replyId));
+    setDeletingReplyId(null);
+  }
+
   async function handleReplySubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const body = replyBody.trim();
@@ -331,7 +384,7 @@ export default function PostDetailPage() {
         likes: 0,
         user_id: user?.id ?? null,
       })
-      .select("id, post_id, description, image_url, likes, created_at")
+      .select("id, post_id, description, image_url, likes, created_at, user_id")
       .single();
 
     if (insertError) {
@@ -425,8 +478,20 @@ export default function PostDetailPage() {
               </button>
             )}
 
-            {/* 通報ボタン */}
-            <div className="flex justify-end border-t border-zinc-100 px-6 py-3">
+            {/* 削除・通報ボタン */}
+            <div className="flex items-center justify-between border-t border-zinc-100 px-6 py-3">
+              {user?.id && postUserId && user.id === postUserId ? (
+                <button
+                  type="button"
+                  onClick={handleDeletePost}
+                  disabled={deletingPost}
+                  className="text-sm text-red-500 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {deletingPost ? "削除中…" : "削除"}
+                </button>
+              ) : (
+                <span />
+              )}
               <ReportButton targetType="post" targetId={String(post.id)} />
             </div>
           </article>
@@ -553,7 +618,19 @@ export default function PostDetailPage() {
                           <span>{reply.likes}</span>
                         </button>
                       </div>
-                      <div className="mt-2 flex justify-end">
+                      <div className="mt-2 flex items-center justify-between">
+                        {user?.id && reply.userId && user.id === reply.userId ? (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteReply(reply.id)}
+                            disabled={deletingReplyId === reply.id}
+                            className="text-sm text-red-500 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {deletingReplyId === reply.id ? "削除中…" : "削除"}
+                          </button>
+                        ) : (
+                          <span />
+                        )}
                         <ReportButton targetType="reply" targetId={reply.id} />
                       </div>
                     </div>
