@@ -60,6 +60,15 @@ type ReportRow = {
   handled_at: string | null;
 };
 
+type UserStatRow = {
+  user_id: string;
+  display_name: string | null;
+  post_count: number;
+  reply_count: number;
+  total_reply_likes: number;
+  best_answer_count: number;
+};
+
 async function getPosts(): Promise<PostRow[]> {
   const { data, error } = await supabase
     .from("posts")
@@ -98,6 +107,21 @@ async function getReplies(): Promise<ReplyRow[]> {
     return [];
   }
   return (data ?? []) as ReplyRow[];
+}
+
+async function getUserStats(): Promise<UserStatRow[]> {
+  const { data, error } = await supabase
+    .from("user_stats")
+    .select("user_id, display_name, post_count, reply_count, total_reply_likes, best_answer_count")
+    .order("best_answer_count", { ascending: false })
+    .order("total_reply_likes", { ascending: false })
+    .order("reply_count", { ascending: false })
+    .order("post_count", { ascending: false });
+  if (error) {
+    console.error("Dashboard: failed to load user stats:", error.message);
+    return [];
+  }
+  return (data ?? []) as UserStatRow[];
 }
 
 
@@ -218,10 +242,11 @@ export default async function DashboardPage({ searchParams }: Props) {
   if (replyFilter !== "all") currentParams.replyStatus = replyFilter;
   if (reportFilter !== "all") currentParams.reportStatus = reportFilter;
 
-  const [posts, replies, reports] = await Promise.all([
+  const [posts, replies, reports, userStats] = await Promise.all([
     getPosts(),
     getReplies(),
     getReports(),
+    getUserStats(),
   ]);
 
   // reply の id → post_id マップ（通報リンク修正用）
@@ -543,7 +568,7 @@ export default async function DashboardPage({ searchParams }: Props) {
       </section>
 
       {/* Replies */}
-      <section>
+      <section className="mb-12">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-zinc-900">
             返信{" "}
@@ -651,6 +676,65 @@ export default async function DashboardPage({ searchParams }: Props) {
           {filteredReplies.length === 0 && (
             <p className="px-4 py-10 text-center text-sm text-zinc-400">
               該当する返信なし
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* ユーザー実績 */}
+      <section>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-zinc-900">
+            ユーザー実績{" "}
+            <span className="ml-1 text-sm font-normal text-zinc-500">
+              ({userStats.length}件)
+            </span>
+          </h2>
+        </div>
+        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-zinc-100 bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
+                <th className="min-w-[160px] px-4 py-3">表示名</th>
+                <th className="w-20 px-4 py-3 text-right">投稿数</th>
+                <th className="w-20 px-4 py-3 text-right">返信数</th>
+                <th className="w-24 px-4 py-3 text-right">返信Like計</th>
+                <th className="w-32 px-4 py-3 text-right">ベストアンサー</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {userStats.map((stat) => (
+                <tr key={stat.user_id} className="hover:bg-zinc-50/70">
+                  <td className="px-4 py-3 text-xs text-zinc-700">
+                    {stat.display_name ?? (
+                      <span className="text-zinc-400">未設定</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right text-xs text-zinc-700">
+                    {stat.post_count}
+                  </td>
+                  <td className="px-4 py-3 text-right text-xs text-zinc-700">
+                    {stat.reply_count}
+                  </td>
+                  <td className="px-4 py-3 text-right text-xs text-zinc-700">
+                    {stat.total_reply_likes}
+                  </td>
+                  <td className="px-4 py-3 text-right text-xs">
+                    {stat.best_answer_count > 0 ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700">
+                        {stat.best_answer_count}
+                      </span>
+                    ) : (
+                      <span className="text-zinc-400">0</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {userStats.length === 0 && (
+            <p className="px-4 py-10 text-center text-sm text-zinc-400">
+              ユーザー実績はまだありません
             </p>
           )}
         </div>
