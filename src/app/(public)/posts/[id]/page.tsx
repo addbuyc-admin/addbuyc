@@ -267,6 +267,7 @@ export default function PostDetailPage() {
     if (!post) return;
     const postId = String(post.id);
     if (likedPosts.has(postId)) return;
+    if (user?.id && postUserId && user.id === postUserId) return;
 
     const persistedLikes = await likePost(postId);
     if (persistedLikes === null) {
@@ -286,6 +287,7 @@ export default function PostDetailPage() {
     if (likedReplies.has(replyId)) return;
     const target = replies.find((reply) => reply.id === replyId);
     if (!target) return;
+    if (user?.id && target.userId && user.id === target.userId) return;
     const nextLikes = target.likes + 1;
     setReplies((prev) =>
       prev.map((reply) =>
@@ -485,17 +487,17 @@ export default function PostDetailPage() {
                     </time>
                   </div>
                   <button
-                  type="button"
-                  onClick={handleLikePost}
-                  disabled={likedPosts.has(String(post.id))}
-                  className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
-                  aria-label={`Like post: ${post.title}`}
-                >
-                  <span aria-hidden className="text-base leading-none">
-                    ♥
-                  </span>
-                  <span>{post.likes}</span>
-                </button>
+                    type="button"
+                    onClick={handleLikePost}
+                    disabled={likedPosts.has(String(post.id)) || !!(user?.id && postUserId && user.id === postUserId)}
+                    className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                    aria-label={`Like post: ${post.title}`}
+                  >
+                    <span aria-hidden className="text-base leading-none">
+                      ♥
+                    </span>
+                    <span>{post.likes}</span>
+                  </button>
                 </div>
                 <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
                   <span>投稿者：{resolveDisplayName(postUserId, userStats)}</span>
@@ -558,7 +560,9 @@ export default function PostDetailPage() {
               ) : (
                 <span />
               )}
-              <ReportButton targetType="post" targetId={String(post.id)} />
+              {!(user?.id && postUserId && user.id === postUserId) && (
+                <ReportButton targetType="post" targetId={String(post.id)} />
+              )}
             </div>
           </article>
 
@@ -685,7 +689,7 @@ export default function PostDetailPage() {
                         <button
                           type="button"
                           onClick={() => handleLikeReply(reply.id)}
-                          disabled={likedReplies.has(reply.id)}
+                          disabled={likedReplies.has(reply.id) || !!(user?.id && reply.userId && user.id === reply.userId)}
                           className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
                           aria-label="Like reply"
                         >
@@ -708,7 +712,9 @@ export default function PostDetailPage() {
                         ) : (
                           <span />
                         )}
-                        <ReportButton targetType="reply" targetId={reply.id} />
+                        {!(user?.id && reply.userId && user.id === reply.userId) && (
+                          <ReportButton targetType="reply" targetId={reply.id} />
+                        )}
                       </div>
                     </div>
                   </li>
