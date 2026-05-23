@@ -28,6 +28,42 @@ function toCategory(value: string | null): CategorySlug {
   return "other";
 }
 
+type UserStat = {
+  user_id: string;
+  display_name: string | null;
+  post_count: number;
+  reply_count: number;
+  total_reply_likes: number;
+  best_answer_count: number;
+};
+
+type AdvisorRankInfo = { label: string; className: string };
+
+function getAdvisorRank(stat: UserStat): AdvisorRankInfo | null {
+  if (stat.best_answer_count >= 5 && stat.total_reply_likes >= 50)
+    return { label: "認定アドバイザー", className: "bg-violet-100 text-violet-700" };
+  if (stat.best_answer_count >= 3 && stat.total_reply_likes >= 30)
+    return { label: "ゴールドアドバイザー", className: "bg-amber-100 text-amber-700" };
+  if (stat.reply_count >= 10 && stat.total_reply_likes >= 10)
+    return { label: "シルバーアドバイザー", className: "bg-slate-100 text-slate-600" };
+  if (stat.reply_count >= 5)
+    return { label: "ブロンズアドバイザー", className: "bg-orange-100 text-orange-700" };
+  return null;
+}
+
+function resolveDisplayName(userId: string | null, map: Map<string, UserStat>): string {
+  if (!userId) return "ゲストユーザー";
+  const stat = map.get(userId);
+  return stat?.display_name?.trim() || "ゲストユーザー";
+}
+
+function resolveAdvisorRank(userId: string | null, map: Map<string, UserStat>): AdvisorRankInfo | null {
+  if (!userId) return null;
+  const stat = map.get(userId);
+  if (!stat || !stat.display_name?.trim()) return null;
+  return getAdvisorRank(stat);
+}
+
 type PostRow = {
   id: number | string;
   title: string;
@@ -135,6 +171,7 @@ export default function PostDetailPage() {
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [likedReplies, setLikedReplies] = useState<Set<string>>(new Set());
   const [modalSrc, setModalSrc] = useState<string | null>(null);
+  const [userStats, setUserStats] = useState<Map<string, UserStat>>(new Map());
 
   useEffect(() => {
     setLikedPosts(readLikedSet(LIKED_POSTS_KEY));
@@ -202,6 +239,22 @@ export default function PostDetailPage() {
           return 0;
         });
         setReplies(mapped);
+      }
+
+      // user_stats を一括取得して Map に変換
+      const userIds = [
+        rawPost.user_id,
+        ...((repliesData ?? []).map((r) => (r as ReplyRow & { user_id?: string | null }).user_id ?? null)),
+      ].filter((id): id is string => !!id);
+      const uniqueIds = [...new Set(userIds)];
+      if (uniqueIds.length > 0) {
+        const { data: statsData } = await supabase
+          .from("user_stats")
+          .select("user_id, display_name, post_count, reply_count, total_reply_likes, best_answer_count")
+          .in("user_id", uniqueIds);
+        if (statsData) {
+          setUserStats(new Map((statsData as UserStat[]).map((s) => [s.user_id, s])));
+        }
       }
 
       setPost(mappedPost);
@@ -423,14 +476,15 @@ export default function PostDetailPage() {
               <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
                 {post.title}
               </h1>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-4 text-sm text-zinc-500">
-                <div className="flex items-center gap-2">
-                  <CategoryBadge category={post.category} />
-                  <time dateTime={post.createdAt}>
-                    {formatDateTime(post.createdAt)}
-                  </time>
-                </div>
-                <button
+              <div className="mt-3 border-b border-zinc-100 pb-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
+                  <div className="flex items-center gap-2">
+                    <CategoryBadge category={post.category} />
+                    <time dateTime={post.createdAt}>
+                      {formatDateTime(post.createdAt)}
+                    </time>
+                  </div>
+                  <button
                   type="button"
                   onClick={handleLikePost}
                   disabled={likedPosts.has(String(post.id))}
@@ -442,6 +496,18 @@ export default function PostDetailPage() {
                   </span>
                   <span>{post.likes}</span>
                 </button>
+                </div>
+                <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+                  <span>投稿者：{resolveDisplayName(postUserId, userStats)}</span>
+                  {(() => {
+                    const rank = resolveAdvisorRank(postUserId, userStats);
+                    return rank ? (
+                      <span className={`inline-flex rounded-full px-2 py-0.5 font-medium ${rank.className}`}>
+                        {rank.label}
+                      </span>
+                    ) : null;
+                  })()}
+                </div>
               </div>
               {post.targetUrl && (
                 <div className="mt-4">
@@ -602,9 +668,20 @@ export default function PostDetailPage() {
                         </button>
                       )}
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
-                        <time dateTime={reply.createdAt}>
-                          {formatDateTime(reply.createdAt)}
-                        </time>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs">返信者：{resolveDisplayName(reply.userId, userStats)}</span>
+                          {(() => {
+                            const rank = resolveAdvisorRank(reply.userId, userStats);
+                            return rank ? (
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${rank.className}`}>
+                                {rank.label}
+                              </span>
+                            ) : null;
+                          })()}
+                          <time className="text-xs" dateTime={reply.createdAt}>
+                            {formatDateTime(reply.createdAt)}
+                          </time>
+                        </div>
                         <button
                           type="button"
                           onClick={() => handleLikeReply(reply.id)}
