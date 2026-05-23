@@ -7,6 +7,7 @@ import { ToggleBestAnswerButton } from "@/components/ToggleBestAnswerButton";
 import { ReportStatusButton } from "@/components/ReportStatusButton";
 import { ReportNoteEditor } from "@/components/ReportNoteEditor";
 import { LinkedText } from "@/components/LinkedText";
+import { getAdvisorRank } from "@/lib/advisor-rank";
 
 const REASON_LABELS: Record<string, string> = {
   spam: "スパム",
@@ -69,23 +70,6 @@ type UserStatRow = {
   best_answer_count: number;
 };
 
-type AdvisorRank = {
-  label: string;
-  priority: number;
-  className: string;
-};
-
-function getAdvisorRank(stat: UserStatRow): AdvisorRank {
-  if (stat.best_answer_count >= 5 && stat.total_reply_likes >= 50)
-    return { label: "認定アドバイザー", priority: 4, className: "bg-violet-100 text-violet-700" };
-  if (stat.best_answer_count >= 3 && stat.total_reply_likes >= 30)
-    return { label: "ゴールドアドバイザー", priority: 3, className: "bg-amber-100 text-amber-700" };
-  if (stat.reply_count >= 10 && stat.total_reply_likes >= 10)
-    return { label: "シルバーアドバイザー", priority: 2, className: "bg-slate-100 text-slate-600" };
-  if (stat.reply_count >= 5)
-    return { label: "ブロンズアドバイザー", priority: 1, className: "bg-orange-100 text-orange-700" };
-  return { label: "なし", priority: 0, className: "" };
-}
 
 async function getPosts(): Promise<PostRow[]> {
   const { data, error } = await supabase
@@ -268,9 +252,9 @@ export default async function DashboardPage({ searchParams }: Props) {
   ]);
 
   const userStats = [...rawUserStats].sort((a, b) => {
-    const ra = getAdvisorRank(a);
-    const rb = getAdvisorRank(b);
-    if (rb.priority !== ra.priority) return rb.priority - ra.priority;
+    const priorityA = getAdvisorRank(a)?.priority ?? 0;
+    const priorityB = getAdvisorRank(b)?.priority ?? 0;
+    if (priorityB !== priorityA) return priorityB - priorityA;
     if (b.best_answer_count !== a.best_answer_count) return b.best_answer_count - a.best_answer_count;
     if (b.total_reply_likes !== a.total_reply_likes) return b.total_reply_likes - a.total_reply_likes;
     if (b.reply_count !== a.reply_count) return b.reply_count - a.reply_count;
@@ -742,7 +726,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {rank.priority > 0 ? (
+                    {rank !== null ? (
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${rank.className}`}>
                         {rank.label}
                       </span>

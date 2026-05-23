@@ -13,6 +13,7 @@ import type { Post } from "@/lib/types";
 import { CATEGORIES, type CategorySlug } from "@/lib/categories";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { ReportButton } from "@/components/ReportButton";
+import { getAdvisorRank, type AdvisorRankInfo } from "@/lib/advisor-rank";
 
 const VALID_CATEGORIES: Set<string> = new Set(CATEGORIES.map((c) => c.slug));
 
@@ -30,19 +31,6 @@ type UserStat = {
   best_answer_count: number;
 };
 
-type AdvisorRankInfo = { label: string; className: string };
-
-function getAdvisorRank(stat: UserStat): AdvisorRankInfo | null {
-  if (stat.best_answer_count >= 5 && stat.total_reply_likes >= 50)
-    return { label: "認定アドバイザー", className: "bg-violet-100 text-violet-700" };
-  if (stat.best_answer_count >= 3 && stat.total_reply_likes >= 30)
-    return { label: "ゴールドアドバイザー", className: "bg-amber-100 text-amber-700" };
-  if (stat.reply_count >= 10 && stat.total_reply_likes >= 10)
-    return { label: "シルバーアドバイザー", className: "bg-slate-100 text-slate-600" };
-  if (stat.reply_count >= 5)
-    return { label: "ブロンズアドバイザー", className: "bg-orange-100 text-orange-700" };
-  return null;
-}
 
 function resolveDisplayName(userId: string | null, map: Map<string, UserStat>): string {
   if (!userId) return "ゲストユーザー";
