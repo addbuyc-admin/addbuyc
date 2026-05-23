@@ -30,6 +30,30 @@ export const CATEGORIES = [
     badgeClassName: "bg-orange-100 text-orange-700",
   },
   {
+    slug: "vehicle",
+    label: "車・バイク",
+    description: "車・バイク・カー用品などの相談",
+    badgeClassName: "bg-blue-100 text-blue-700",
+  },
+  {
+    slug: "travel",
+    label: "旅行・おでかけ",
+    description: "旅行・ホテル・レジャーなどの相談",
+    badgeClassName: "bg-teal-100 text-teal-700",
+  },
+  {
+    slug: "service",
+    label: "暮らしのサービス",
+    description: "引越し・宅配・サブスクなどの相談",
+    badgeClassName: "bg-lime-100 text-lime-700",
+  },
+  {
+    slug: "finance",
+    label: "金融・投資",
+    description: "保険・投資・クレジットカードなどの相談",
+    badgeClassName: "bg-green-100 text-green-700",
+  },
+  {
     slug: "other",
     label: "その他",
     description: "上記に当てはまらない相談",

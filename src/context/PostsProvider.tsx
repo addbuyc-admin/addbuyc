@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Post } from "@/lib/types";
-import type { CategorySlug } from "@/lib/categories";
+import { CATEGORIES, type CategorySlug } from "@/lib/categories";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/context/AuthProvider";
 
@@ -40,14 +40,7 @@ function toDbId(id: string) {
   return /^\d+$/.test(id) ? Number(id) : id;
 }
 
-const VALID_CATEGORIES = new Set([
-  "fashion",
-  "beauty",
-  "gadget",
-  "hobby",
-  "gourmet",
-  "other",
-]);
+const VALID_CATEGORIES: Set<string> = new Set(CATEGORIES.map((c) => c.slug));
 
 function toCategory(value: string | null): CategorySlug {
   if (value && VALID_CATEGORIES.has(value)) return value as CategorySlug;
