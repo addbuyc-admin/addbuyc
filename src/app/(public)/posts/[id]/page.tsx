@@ -241,20 +241,50 @@ export default function PostDetailPage() {
         setReplies(mapped);
       }
 
-      // user_stats を一括取得して Map に変換
+      // 投稿・返信に紐づく user_id を収集
       const userIds = [
         rawPost.user_id,
         ...((repliesData ?? []).map((r) => (r as ReplyRow & { user_id?: string | null }).user_id ?? null)),
       ].filter((id): id is string => !!id);
       const uniqueIds = [...new Set(userIds)];
+
       if (uniqueIds.length > 0) {
-        const { data: statsData } = await supabase
-          .from("user_stats")
-          .select("user_id, display_name, post_count, reply_count, total_reply_likes, best_answer_count")
-          .in("user_id", uniqueIds);
-        if (statsData) {
-          setUserStats(new Map((statsData as UserStat[]).map((s) => [s.user_id, s])));
-        }
+        // display_name は profiles から直接取得（信頼性優先）
+        // ランク用の集計値は user_stats から取得
+        const [profilesResult, statsResult] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("id, display_name")
+            .in("id", uniqueIds),
+          supabase
+            .from("user_stats")
+            .select("user_id, post_count, reply_count, total_reply_likes, best_answer_count")
+            .in("user_id", uniqueIds),
+        ]);
+
+        const displayNameMap = new Map(
+          ((profilesResult.data ?? []) as { id: string; display_name: string | null }[])
+            .map((p) => [p.id, p.display_name]),
+        );
+        const rankMap = new Map(
+          ((statsResult.data ?? []) as Omit<UserStat, "display_name">[])
+            .map((s) => [s.user_id, s]),
+        );
+
+        const merged = new Map<string, UserStat>(
+          uniqueIds.map((id) => [
+            id,
+            {
+              user_id: id,
+              display_name: displayNameMap.get(id) ?? null,
+              post_count: rankMap.get(id)?.post_count ?? 0,
+              reply_count: rankMap.get(id)?.reply_count ?? 0,
+              total_reply_likes: rankMap.get(id)?.total_reply_likes ?? 0,
+              best_answer_count: rankMap.get(id)?.best_answer_count ?? 0,
+            },
+          ]),
+        );
+        setUserStats(merged);
       }
 
       setPost(mappedPost);

@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase/browser";
 
 export function Header() {
-  const { user, loading } = useAuth();
+  const { user, loading, displayName } = useAuth();
   const router = useRouter();
 
   async function handleSignOut() {
@@ -34,12 +34,13 @@ export function Header() {
           {!loading &&
             (user ? (
               <>
-                <span
-                  className="max-w-[100px] truncate text-sm text-zinc-500"
+                <Link
+                  href="/mypage"
+                  className="max-w-[100px] truncate text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-900 hover:underline"
                   title={user.email ?? undefined}
                 >
-                  {user.email?.split("@")[0]}
-                </span>
+                  {displayName || user.email?.split("@")[0]}
+                </Link>
                 <button
                   type="button"
                   onClick={handleSignOut}
