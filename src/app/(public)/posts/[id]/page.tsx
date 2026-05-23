@@ -10,7 +10,7 @@ import { supabase } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compress-image";
 import { LinkedText } from "@/components/LinkedText";
 import type { Post } from "@/lib/types";
-import type { CategorySlug } from "@/lib/categories";
+import { CATEGORIES, type CategorySlug } from "@/lib/categories";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { ReportButton } from "@/components/ReportButton";
 
@@ -172,6 +172,19 @@ export default function PostDetailPage() {
   const [likedReplies, setLikedReplies] = useState<Set<string>>(new Set());
   const [modalSrc, setModalSrc] = useState<string | null>(null);
   const [userStats, setUserStats] = useState<Map<string, UserStat>>(new Map());
+  // 投稿編集
+  const [editingPost, setEditingPost] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editTargetUrl, setEditTargetUrl] = useState("");
+  const [editCategory, setEditCategory] = useState<CategorySlug>("other");
+  const [editPostError, setEditPostError] = useState<string | null>(null);
+  const [savingPost, setSavingPost] = useState(false);
+  // 返信編集
+  const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
+  const [editReplyBody, setEditReplyBody] = useState("");
+  const [editReplyError, setEditReplyError] = useState<string | null>(null);
+  const [savingReplyId, setSavingReplyId] = useState<string | null>(null);
 
   useEffect(() => {
     setLikedPosts(readLikedSet(LIKED_POSTS_KEY));
@@ -485,6 +498,82 @@ export default function PostDetailPage() {
     setSubmittingReply(false);
   }
 
+  function handleEditPost() {
+    if (!post) return;
+    setEditTitle(post.title);
+    setEditDescription(post.description);
+    setEditTargetUrl(post.targetUrl ?? "");
+    setEditCategory(post.category);
+    setEditPostError(null);
+    setEditingPost(true);
+  }
+
+  function handleCancelEditPost() {
+    setEditingPost(false);
+    setEditPostError(null);
+  }
+
+  async function handleSavePost() {
+    if (!post || !user?.id || savingPost) return;
+    const title = editTitle.trim();
+    const description = editDescription.trim();
+    const targetUrl = editTargetUrl.trim() || null;
+    if (!title) { setEditPostError("タイトルを入力してください"); return; }
+    if (!description) { setEditPostError("相談内容を入力してください"); return; }
+    setEditPostError(null);
+    setSavingPost(true);
+    const { error: updateError } = await supabase
+      .from("posts")
+      .update({ title, description, target_url: targetUrl, category: editCategory })
+      .eq("id", toDbId(String(post.id)))
+      .eq("user_id", user.id);
+    if (updateError) {
+      console.error("Failed to update post:", updateError.message);
+      setEditPostError("保存に失敗しました。しばらくしてから再度お試しください。");
+      setSavingPost(false);
+      return;
+    }
+    setPost((prev) => prev ? { ...prev, title, description, targetUrl, category: editCategory } : prev);
+    await refetchPosts();
+    setEditingPost(false);
+    setSavingPost(false);
+  }
+
+  function handleEditReply(replyId: string) {
+    const reply = replies.find((r) => r.id === replyId);
+    if (!reply) return;
+    setEditReplyBody(reply.description);
+    setEditReplyError(null);
+    setEditingReplyId(replyId);
+  }
+
+  function handleCancelEditReply() {
+    setEditingReplyId(null);
+    setEditReplyError(null);
+  }
+
+  async function handleSaveReply(replyId: string) {
+    if (!user?.id || savingReplyId) return;
+    const body = editReplyBody.trim();
+    if (!body) { setEditReplyError("返信内容を入力してください"); return; }
+    setEditReplyError(null);
+    setSavingReplyId(replyId);
+    const { error: updateError } = await supabase
+      .from("replies")
+      .update({ description: body })
+      .eq("id", toDbId(replyId))
+      .eq("user_id", user.id);
+    if (updateError) {
+      console.error("Failed to update reply:", updateError.message);
+      setEditReplyError("保存に失敗しました。しばらくしてから再度お試しください。");
+      setSavingReplyId(null);
+      return;
+    }
+    setReplies((prev) => prev.map((r) => r.id === replyId ? { ...r, description: body } : r));
+    setEditingReplyId(null);
+    setSavingReplyId(null);
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <Link
@@ -503,61 +592,135 @@ export default function PostDetailPage() {
       ) : post ? (
         <div className="mt-6 space-y-6">
           <article className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-            {/* タイトル・カテゴリ+日時+Like・対象URL・本文 */}
-            <div className="p-6">
-              <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
-                {post.title}
-              </h1>
-              <div className="mt-3 border-b border-zinc-100 pb-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
-                  <div className="flex items-center gap-2">
-                    <CategoryBadge category={post.category} />
-                    <time dateTime={post.createdAt}>
-                      {formatDateTime(post.createdAt)}
-                    </time>
-                  </div>
+            {/* タイトル・カテゴリ+日時+Like・対象URL・本文 / 編集フォーム */}
+            {editingPost ? (
+              <div className="p-6 space-y-4">
+                <p className="text-sm font-semibold text-zinc-700">投稿を編集</p>
+                <div className="space-y-2">
+                  <label htmlFor="editTitle" className="text-sm font-medium text-zinc-800">タイトル</label>
+                  <input
+                    id="editTitle"
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    maxLength={100}
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="editCategory" className="text-sm font-medium text-zinc-800">カテゴリ</label>
+                  <select
+                    id="editCategory"
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value as CategorySlug)}
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/10"
+                  >
+                    {CATEGORIES.map((c) => (
+                      <option key={c.slug} value={c.slug}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="editTargetUrl" className="text-sm font-medium text-zinc-800">
+                    対象URL <span className="font-normal text-zinc-400">（任意）</span>
+                  </label>
+                  <input
+                    id="editTargetUrl"
+                    type="text"
+                    value={editTargetUrl}
+                    onChange={(e) => setEditTargetUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="editDescription" className="text-sm font-medium text-zinc-800">相談内容</label>
+                  <textarea
+                    id="editDescription"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={6}
+                    className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+                  />
+                </div>
+                {editPostError && (
+                  <p className="text-sm text-red-600" role="alert">{editPostError}</p>
+                )}
+                <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={handleLikePost}
-                    disabled={likedPosts.has(String(post.id)) || !!(user?.id && postUserId && user.id === postUserId)}
-                    className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
-                    aria-label={`Like post: ${post.title}`}
+                    onClick={handleSavePost}
+                    disabled={savingPost}
+                    className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    <span aria-hidden className="text-base leading-none">
-                      ♥
-                    </span>
-                    <span>{post.likes}</span>
+                    {savingPost ? "保存中…" : "保存する"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelEditPost}
+                    disabled={savingPost}
+                    className="text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    キャンセル
                   </button>
                 </div>
-                <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
-                  <span>投稿者：{resolveDisplayName(postUserId, userStats)}</span>
-                  {(() => {
-                    const rank = resolveAdvisorRank(postUserId, userStats);
-                    return rank ? (
-                      <span className={`inline-flex rounded-full px-2 py-0.5 font-medium ${rank.className}`}>
-                        {rank.label}
-                      </span>
-                    ) : null;
-                  })()}
-                </div>
               </div>
-              {post.targetUrl && (
-                <div className="mt-4">
-                  <p className="text-xs font-medium text-zinc-500">対象URL</p>
-                  <a
-                    href={post.targetUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1 inline-block max-w-full truncate text-sm text-blue-600 underline underline-offset-2 hover:text-blue-800"
-                  >
-                    {post.targetUrl}
-                  </a>
+            ) : (
+              <div className="p-6">
+                <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
+                  {post.title}
+                </h1>
+                <div className="mt-3 border-b border-zinc-100 pb-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
+                    <div className="flex items-center gap-2">
+                      <CategoryBadge category={post.category} />
+                      <time dateTime={post.createdAt}>
+                        {formatDateTime(post.createdAt)}
+                      </time>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleLikePost}
+                      disabled={likedPosts.has(String(post.id)) || !!(user?.id && postUserId && user.id === postUserId)}
+                      className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                      aria-label={`Like post: ${post.title}`}
+                    >
+                      <span aria-hidden className="text-base leading-none">
+                        ♥
+                      </span>
+                      <span>{post.likes}</span>
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+                    <span>投稿者：{resolveDisplayName(postUserId, userStats)}</span>
+                    {(() => {
+                      const rank = resolveAdvisorRank(postUserId, userStats);
+                      return rank ? (
+                        <span className={`inline-flex rounded-full px-2 py-0.5 font-medium ${rank.className}`}>
+                          {rank.label}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
                 </div>
-              )}
-              <p className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
-                <LinkedText text={post.description} />
-              </p>
-            </div>
+                {post.targetUrl && (
+                  <div className="mt-4">
+                    <p className="text-xs font-medium text-zinc-500">対象URL</p>
+                    <a
+                      href={post.targetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 inline-block max-w-full truncate text-sm text-blue-600 underline underline-offset-2 hover:text-blue-800"
+                    >
+                      {post.targetUrl}
+                    </a>
+                  </div>
+                )}
+                <p className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
+                  <LinkedText text={post.description} />
+                </p>
+              </div>
+            )}
 
             {/* 投稿画像（クリックで拡大） */}
             {post.imageUrl && (
@@ -576,24 +739,35 @@ export default function PostDetailPage() {
               </button>
             )}
 
-            {/* 削除・通報ボタン */}
-            <div className="flex items-center justify-between border-t border-zinc-100 px-6 py-3">
-              {user?.id && postUserId && user.id === postUserId ? (
-                <button
-                  type="button"
-                  onClick={handleDeletePost}
-                  disabled={deletingPost}
-                  className="text-sm text-red-500 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {deletingPost ? "削除中…" : "削除"}
-                </button>
-              ) : (
-                <span />
-              )}
-              {!(user?.id && postUserId && user.id === postUserId) && (
-                <ReportButton targetType="post" targetId={String(post.id)} />
-              )}
-            </div>
+            {/* 削除・編集・通報ボタン（編集中は非表示） */}
+            {!editingPost && (
+              <div className="flex items-center justify-between border-t border-zinc-100 px-6 py-3">
+                {user?.id && postUserId && user.id === postUserId ? (
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleDeletePost}
+                      disabled={deletingPost}
+                      className="text-sm text-red-500 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deletingPost ? "削除中…" : "削除"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleEditPost}
+                      className="text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline"
+                    >
+                      編集
+                    </button>
+                  </div>
+                ) : (
+                  <span />
+                )}
+                {!(user?.id && postUserId && user.id === postUserId) && (
+                  <ReportButton targetType="post" targetId={String(post.id)} />
+                )}
+              </div>
+            )}
           </article>
 
           <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -683,69 +857,112 @@ export default function PostDetailPage() {
                           />
                         </div>
                       )}
-                      <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
-                        <LinkedText text={reply.description} />
-                      </p>
-                      {reply.imageUrl && (
-                        <button
-                          type="button"
-                          className="mt-3 block w-full cursor-zoom-in overflow-hidden rounded-xl border border-zinc-200"
-                          onClick={() => setModalSrc(reply.imageUrl!)}
-                          aria-label="画像を拡大表示"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={reply.imageUrl}
-                            alt=""
-                            className="max-h-[400px] w-full object-cover"
+                      {editingReplyId === reply.id ? (
+                        <div className="space-y-3">
+                          <textarea
+                            value={editReplyBody}
+                            onChange={(e) => setEditReplyBody(e.target.value)}
+                            rows={4}
+                            className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
                           />
-                        </button>
-                      )}
-                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs">返信者：{resolveDisplayName(reply.userId, userStats)}</span>
-                          {(() => {
-                            const rank = resolveAdvisorRank(reply.userId, userStats);
-                            return rank ? (
-                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${rank.className}`}>
-                                {rank.label}
-                              </span>
-                            ) : null;
-                          })()}
-                          <time className="text-xs" dateTime={reply.createdAt}>
-                            {formatDateTime(reply.createdAt)}
-                          </time>
+                          {editReplyError && (
+                            <p className="text-sm text-red-600" role="alert">{editReplyError}</p>
+                          )}
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleSaveReply(reply.id)}
+                              disabled={savingReplyId === reply.id}
+                              className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
+                            >
+                              {savingReplyId === reply.id ? "保存中…" : "保存する"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelEditReply}
+                              disabled={savingReplyId === reply.id}
+                              className="text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              キャンセル
+                            </button>
+                          </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleLikeReply(reply.id)}
-                          disabled={likedReplies.has(reply.id) || !!(user?.id && reply.userId && user.id === reply.userId)}
-                          className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
-                          aria-label="Like reply"
-                        >
-                          <span aria-hidden className="text-base leading-none">
-                            ♥
-                          </span>
-                          <span>{reply.likes}</span>
-                        </button>
-                      </div>
-                      <div className="mt-2 flex items-center justify-between">
-                        {user?.id && reply.userId && user.id === reply.userId ? (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteReply(reply.id)}
-                            disabled={deletingReplyId === reply.id}
-                            className="text-sm text-red-500 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {deletingReplyId === reply.id ? "削除中…" : "削除"}
-                          </button>
-                        ) : (
-                          <span />
-                        )}
-                        {!(user?.id && reply.userId && user.id === reply.userId) && (
-                          <ReportButton targetType="reply" targetId={reply.id} />
-                        )}
-                      </div>
+                      ) : (
+                        <>
+                          <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
+                            <LinkedText text={reply.description} />
+                          </p>
+                          {reply.imageUrl && (
+                            <button
+                              type="button"
+                              className="mt-3 block w-full cursor-zoom-in overflow-hidden rounded-xl border border-zinc-200"
+                              onClick={() => setModalSrc(reply.imageUrl!)}
+                              aria-label="画像を拡大表示"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={reply.imageUrl}
+                                alt=""
+                                className="max-h-[400px] w-full object-cover"
+                              />
+                            </button>
+                          )}
+                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs">返信者：{resolveDisplayName(reply.userId, userStats)}</span>
+                              {(() => {
+                                const rank = resolveAdvisorRank(reply.userId, userStats);
+                                return rank ? (
+                                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${rank.className}`}>
+                                    {rank.label}
+                                  </span>
+                                ) : null;
+                              })()}
+                              <time className="text-xs" dateTime={reply.createdAt}>
+                                {formatDateTime(reply.createdAt)}
+                              </time>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleLikeReply(reply.id)}
+                              disabled={likedReplies.has(reply.id) || !!(user?.id && reply.userId && user.id === reply.userId)}
+                              className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                              aria-label="Like reply"
+                            >
+                              <span aria-hidden className="text-base leading-none">
+                                ♥
+                              </span>
+                              <span>{reply.likes}</span>
+                            </button>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between">
+                            {user?.id && reply.userId && user.id === reply.userId ? (
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteReply(reply.id)}
+                                  disabled={deletingReplyId === reply.id}
+                                  className="text-sm text-red-500 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {deletingReplyId === reply.id ? "削除中…" : "削除"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditReply(reply.id)}
+                                  className="text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline"
+                                >
+                                  編集
+                                </button>
+                              </div>
+                            ) : (
+                              <span />
+                            )}
+                            {!(user?.id && reply.userId && user.id === reply.userId) && (
+                              <ReportButton targetType="reply" targetId={reply.id} />
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </li>
                 ))}
