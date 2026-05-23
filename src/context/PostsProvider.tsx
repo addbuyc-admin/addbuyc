@@ -18,7 +18,7 @@ type PostsContextValue = {
   posts: Post[];
   ready: boolean;
   addPost: (input: Omit<Post, "id" | "createdAt" | "likes" | "status">) => Promise<void>;
-  likePost: (id: string) => Promise<number | null>;
+  likePost: (id: string, isLiked?: boolean) => Promise<number | null>;
   refetchPosts: () => Promise<void>;
 };
 
@@ -117,7 +117,49 @@ export function PostsProvider({ children }: { children: ReactNode }) {
     [userId],
   );
 
-  const likePost = useCallback(async (id: string) => {
+  const likePost = useCallback(async (id: string, isLiked = false) => {
+    if (userId) {
+      // ログインユーザー: post_likes を INSERT / DELETE し、trigger が posts.likes を更新
+      if (!isLiked) {
+        const { error } = await supabase
+          .from("post_likes")
+          .insert({ post_id: toDbId(id), user_id: userId });
+        if (error) {
+          console.error("Failed to like post:", error.message);
+          return null;
+        }
+      } else {
+        const { error } = await supabase
+          .from("post_likes")
+          .delete()
+          .eq("post_id", toDbId(id))
+          .eq("user_id", userId);
+        if (error) {
+          console.error("Failed to unlike post:", error.message);
+          return null;
+        }
+      }
+      const { data: refreshed, error: refreshError } = await supabase
+        .from("posts")
+        .select("likes")
+        .eq("id", toDbId(id))
+        .maybeSingle();
+      if (refreshError) {
+        console.error("Failed to refresh post likes:", refreshError.message);
+      }
+      const persistedLikes =
+        typeof (refreshed as { likes?: number | null } | null)?.likes === "number"
+          ? (refreshed as { likes: number }).likes
+          : null;
+      if (persistedLikes !== null) {
+        setPosts((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, likes: persistedLikes } : p)),
+        );
+      }
+      return persistedLikes;
+    }
+
+    // ゲスト: posts.likes を直接 UPDATE
     const target = posts.find((p) => p.id === id);
     let currentLikesBase = target?.likes ?? 0;
     const nextLikes = currentLikesBase + 1;
@@ -188,7 +230,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
       prev.map((p) => (p.id === id ? { ...p, likes: persistedLikes } : p)),
     );
     return persistedLikes;
-  }, [posts]);
+  }, [userId, posts]);
 
   const value = useMemo(
     () => ({ posts, ready, addPost, likePost, refetchPosts: fetchPosts }),
