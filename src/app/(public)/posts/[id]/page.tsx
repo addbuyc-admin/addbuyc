@@ -147,7 +147,7 @@ export default function PostDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { likePost, refetchPosts } = usePosts();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [post, setPost] = useState<Post | null>(null);
   const [postUserId, setPostUserId] = useState<string | null>(null);
   const [replies, setReplies] = useState<Reply[]>([]);
@@ -180,9 +180,21 @@ export default function PostDetailPage() {
   const [savingReplyId, setSavingReplyId] = useState<string | null>(null);
 
   useEffect(() => {
-    setLikedPosts(readLikedSet(LIKED_POSTS_KEY));
-    setLikedReplies(readLikedSet(LIKED_REPLIES_KEY));
-  }, []);
+    if (authLoading) return;
+    if (user?.id) {
+      void (async () => {
+        const [{ data: postLikesData }, { data: replyLikesData }] = await Promise.all([
+          supabase.from("post_likes").select("post_id"),
+          supabase.from("reply_likes").select("reply_id"),
+        ]);
+        setLikedPosts(new Set((postLikesData ?? []).map((r) => String((r as { post_id: number }).post_id))));
+        setLikedReplies(new Set((replyLikesData ?? []).map((r) => String((r as { reply_id: number }).reply_id))));
+      })();
+    } else {
+      setLikedPosts(readLikedSet(LIKED_POSTS_KEY));
+      setLikedReplies(readLikedSet(LIKED_REPLIES_KEY));
+    }
+  }, [user, authLoading]);
 
   useEffect(() => {
     if (!modalSrc) return;
@@ -302,53 +314,122 @@ export default function PostDetailPage() {
   async function handleLikePost() {
     if (!post) return;
     const postId = String(post.id);
-    if (likedPosts.has(postId)) return;
     if (user?.id && postUserId && user.id === postUserId) return;
 
-    const persistedLikes = await likePost(postId);
-    if (persistedLikes === null) {
-      console.error("Failed to like post on detail page:", postId);
-      return;
+    if (user?.id) {
+      // ログインユーザー: Like/Unlike トグル
+      const isAlreadyLiked = likedPosts.has(postId);
+      const persistedLikes = await likePost(postId, isAlreadyLiked);
+      if (persistedLikes === null) {
+        console.error("Failed to like/unlike post:", postId);
+        return;
+      }
+      setPost((prev) => (prev ? { ...prev, likes: persistedLikes } : prev));
+      setLikedPosts((prev) => {
+        const next = new Set(prev);
+        if (isAlreadyLiked) next.delete(postId);
+        else next.add(postId);
+        return next;
+      });
+    } else {
+      // ゲスト: Like のみ（解除不可）
+      if (likedPosts.has(postId)) return;
+      const persistedLikes = await likePost(postId);
+      if (persistedLikes === null) {
+        console.error("Failed to like post:", postId);
+        return;
+      }
+      setPost((prev) => (prev ? { ...prev, likes: persistedLikes } : prev));
+      setLikedPosts((prev) => {
+        const next = new Set(prev);
+        next.add(postId);
+        writeLikedSet(LIKED_POSTS_KEY, next);
+        return next;
+      });
     }
-    setPost((prev) => (prev ? { ...prev, likes: persistedLikes } : prev));
-    setLikedPosts((prev) => {
-      const next = new Set(prev);
-      next.add(postId);
-      writeLikedSet(LIKED_POSTS_KEY, next);
-      return next;
-    });
   }
 
   async function handleLikeReply(replyId: string) {
-    if (likedReplies.has(replyId)) return;
     const target = replies.find((reply) => reply.id === replyId);
     if (!target) return;
     if (user?.id && target.userId && user.id === target.userId) return;
-    const nextLikes = target.likes + 1;
-    setReplies((prev) =>
-      prev.map((reply) =>
-        reply.id === replyId ? { ...reply, likes: nextLikes } : reply,
-      ),
-    );
-    const { error: likeError } = await supabase
-      .from("replies")
-      .update({ likes: nextLikes })
-      .eq("id", toDbId(replyId));
-    if (likeError) {
-      console.error("Failed to like reply:", likeError.message);
+
+    if (user?.id) {
+      // ログインユーザー: Like/Unlike トグル
+      const isAlreadyLiked = likedReplies.has(replyId);
+      const optimisticLikes = isAlreadyLiked ? target.likes - 1 : target.likes + 1;
       setReplies((prev) =>
-        prev.map((reply) =>
-          reply.id === replyId ? { ...reply, likes: target.likes } : reply,
-        ),
+        prev.map((r) => r.id === replyId ? { ...r, likes: optimisticLikes } : r),
       );
-      return;
+
+      let dbError;
+      if (!isAlreadyLiked) {
+        const { error } = await supabase
+          .from("reply_likes")
+          .insert({ reply_id: toDbId(replyId), user_id: user.id });
+        dbError = error;
+      } else {
+        const { error } = await supabase
+          .from("reply_likes")
+          .delete()
+          .eq("reply_id", toDbId(replyId))
+          .eq("user_id", user.id);
+        dbError = error;
+      }
+
+      if (dbError) {
+        console.error("Failed to like/unlike reply:", dbError.message);
+        setReplies((prev) =>
+          prev.map((r) => r.id === replyId ? { ...r, likes: target.likes } : r),
+        );
+        return;
+      }
+
+      // trigger が replies.likes を更新済み → 実数を取得
+      const { data: refreshed } = await supabase
+        .from("replies")
+        .select("likes")
+        .eq("id", toDbId(replyId))
+        .maybeSingle();
+      const actualLikes =
+        typeof (refreshed as { likes?: number | null } | null)?.likes === "number"
+          ? (refreshed as { likes: number }).likes
+          : optimisticLikes;
+      setReplies((prev) =>
+        prev.map((r) => r.id === replyId ? { ...r, likes: actualLikes } : r),
+      );
+
+      setLikedReplies((prev) => {
+        const next = new Set(prev);
+        if (isAlreadyLiked) next.delete(replyId);
+        else next.add(replyId);
+        return next;
+      });
+    } else {
+      // ゲスト: Like のみ（解除不可）
+      if (likedReplies.has(replyId)) return;
+      const nextLikes = target.likes + 1;
+      setReplies((prev) =>
+        prev.map((r) => r.id === replyId ? { ...r, likes: nextLikes } : r),
+      );
+      const { error: likeError } = await supabase
+        .from("replies")
+        .update({ likes: nextLikes })
+        .eq("id", toDbId(replyId));
+      if (likeError) {
+        console.error("Failed to like reply:", likeError.message);
+        setReplies((prev) =>
+          prev.map((r) => r.id === replyId ? { ...r, likes: target.likes } : r),
+        );
+        return;
+      }
+      setLikedReplies((prev) => {
+        const next = new Set(prev);
+        next.add(replyId);
+        writeLikedSet(LIKED_REPLIES_KEY, next);
+        return next;
+      });
     }
-    setLikedReplies((prev) => {
-      const next = new Set(prev);
-      next.add(replyId);
-      writeLikedSet(LIKED_REPLIES_KEY, next);
-      return next;
-    });
   }
 
   function onReplyFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -671,18 +752,26 @@ export default function PostDetailPage() {
                         {formatDateTime(post.createdAt)}
                       </time>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleLikePost}
-                      disabled={likedPosts.has(String(post.id)) || !!(user?.id && postUserId && user.id === postUserId)}
-                      className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
-                      aria-label={`Like post: ${post.title}`}
-                    >
-                      <span aria-hidden className="text-base leading-none">
-                        ♥
-                      </span>
-                      <span>{post.likes}</span>
-                    </button>
+                    {(() => {
+                      const isPostLiked = likedPosts.has(String(post.id));
+                      const isSelfLike = !!(user?.id && postUserId && user.id === postUserId);
+                      return (
+                        <button
+                          type="button"
+                          onClick={handleLikePost}
+                          disabled={isSelfLike || (!user?.id && isPostLiked)}
+                          className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${
+                            isPostLiked && user?.id
+                              ? "border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:bg-rose-100"
+                              : "border-zinc-200 bg-zinc-50 text-zinc-800 hover:border-zinc-300 hover:bg-white disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                          }`}
+                          aria-label={`Like post: ${post.title}`}
+                        >
+                          <span aria-hidden className="text-base leading-none">♥</span>
+                          <span>{post.likes}</span>
+                        </button>
+                      );
+                    })()}
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
                     <span>投稿者：{resolveDisplayName(postUserId, userStats)}</span>
@@ -915,18 +1004,26 @@ export default function PostDetailPage() {
                                 {formatDateTime(reply.createdAt)}
                               </time>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleLikeReply(reply.id)}
-                              disabled={likedReplies.has(reply.id) || !!(user?.id && reply.userId && user.id === reply.userId)}
-                              className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-800 transition hover:border-zinc-300 hover:bg-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
-                              aria-label="Like reply"
-                            >
-                              <span aria-hidden className="text-base leading-none">
-                                ♥
-                              </span>
-                              <span>{reply.likes}</span>
-                            </button>
+                            {(() => {
+                              const isReplyLiked = likedReplies.has(reply.id);
+                              const isSelfLikeReply = !!(user?.id && reply.userId && user.id === reply.userId);
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => handleLikeReply(reply.id)}
+                                  disabled={isSelfLikeReply || (!user?.id && isReplyLiked)}
+                                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${
+                                    isReplyLiked && user?.id
+                                      ? "border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:bg-rose-100"
+                                      : "border-zinc-200 bg-zinc-50 text-zinc-800 hover:border-zinc-300 hover:bg-white disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                                  }`}
+                                  aria-label="Like reply"
+                                >
+                                  <span aria-hidden className="text-base leading-none">♥</span>
+                                  <span>{reply.likes}</span>
+                                </button>
+                              );
+                            })()}
                           </div>
                           <div className="mt-2 flex items-center justify-between">
                             {user?.id && reply.userId && user.id === reply.userId ? (
