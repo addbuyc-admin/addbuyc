@@ -14,14 +14,7 @@ import { CATEGORIES, type CategorySlug } from "@/lib/categories";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { ReportButton } from "@/components/ReportButton";
 
-const VALID_CATEGORIES = new Set([
-  "fashion",
-  "beauty",
-  "gadget",
-  "hobby",
-  "gourmet",
-  "other",
-]);
+const VALID_CATEGORIES: Set<string> = new Set(CATEGORIES.map((c) => c.slug));
 
 function toCategory(value: string | null): CategorySlug {
   if (value && VALID_CATEGORIES.has(value)) return value as CategorySlug;
