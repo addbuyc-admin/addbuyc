@@ -69,6 +69,24 @@ type UserStatRow = {
   best_answer_count: number;
 };
 
+type AdvisorRank = {
+  label: string;
+  priority: number;
+  className: string;
+};
+
+function getAdvisorRank(stat: UserStatRow): AdvisorRank {
+  if (stat.best_answer_count >= 5 && stat.total_reply_likes >= 50)
+    return { label: "認定アドバイザー", priority: 4, className: "bg-violet-100 text-violet-700" };
+  if (stat.best_answer_count >= 3 && stat.total_reply_likes >= 30)
+    return { label: "ゴールドアドバイザー", priority: 3, className: "bg-amber-100 text-amber-700" };
+  if (stat.reply_count >= 10 && stat.total_reply_likes >= 10)
+    return { label: "シルバーアドバイザー", priority: 2, className: "bg-slate-100 text-slate-600" };
+  if (stat.reply_count >= 5)
+    return { label: "ブロンズアドバイザー", priority: 1, className: "bg-orange-100 text-orange-700" };
+  return { label: "なし", priority: 0, className: "" };
+}
+
 async function getPosts(): Promise<PostRow[]> {
   const { data, error } = await supabase
     .from("posts")
@@ -242,12 +260,22 @@ export default async function DashboardPage({ searchParams }: Props) {
   if (replyFilter !== "all") currentParams.replyStatus = replyFilter;
   if (reportFilter !== "all") currentParams.reportStatus = reportFilter;
 
-  const [posts, replies, reports, userStats] = await Promise.all([
+  const [posts, replies, reports, rawUserStats] = await Promise.all([
     getPosts(),
     getReplies(),
     getReports(),
     getUserStats(),
   ]);
+
+  const userStats = [...rawUserStats].sort((a, b) => {
+    const ra = getAdvisorRank(a);
+    const rb = getAdvisorRank(b);
+    if (rb.priority !== ra.priority) return rb.priority - ra.priority;
+    if (b.best_answer_count !== a.best_answer_count) return b.best_answer_count - a.best_answer_count;
+    if (b.total_reply_likes !== a.total_reply_likes) return b.total_reply_likes - a.total_reply_likes;
+    if (b.reply_count !== a.reply_count) return b.reply_count - a.reply_count;
+    return b.post_count - a.post_count;
+  });
 
   // reply の id → post_id マップ（通報リンク修正用）
   const replyPostMap = new Map<number, number>(
@@ -696,6 +724,7 @@ export default async function DashboardPage({ searchParams }: Props) {
             <thead>
               <tr className="border-b border-zinc-100 bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
                 <th className="min-w-[160px] px-4 py-3">表示名</th>
+                <th className="w-36 px-4 py-3">アドバイザーランク</th>
                 <th className="w-20 px-4 py-3 text-right">投稿数</th>
                 <th className="w-20 px-4 py-3 text-right">返信数</th>
                 <th className="w-24 px-4 py-3 text-right">返信Like計</th>
@@ -703,11 +732,22 @@ export default async function DashboardPage({ searchParams }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {userStats.map((stat) => (
+              {userStats.map((stat) => {
+                const rank = getAdvisorRank(stat);
+                return (
                 <tr key={stat.user_id} className="hover:bg-zinc-50/70">
                   <td className="px-4 py-3 text-xs text-zinc-700">
                     {stat.display_name ?? (
                       <span className="text-zinc-400">未設定</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {rank.priority > 0 ? (
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${rank.className}`}>
+                        {rank.label}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-zinc-400">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right text-xs text-zinc-700">
@@ -729,7 +769,8 @@ export default async function DashboardPage({ searchParams }: Props) {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           {userStats.length === 0 && (
