@@ -14,6 +14,7 @@ import { CATEGORIES, type CategorySlug } from "@/lib/categories";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { ReportButton } from "@/components/ReportButton";
 import { getAdvisorRank, type AdvisorRankInfo } from "@/lib/advisor-rank";
+import { AdvisorRankBadge } from "@/components/AdvisorRankBadge";
 
 const VALID_CATEGORIES: Set<string> = new Set(CATEGORIES.map((c) => c.slug));
 
@@ -763,14 +764,6 @@ export default function PostDetailPage() {
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
                     <span>投稿者：{resolveDisplayName(postUserId, userStats)}</span>
-                    {(() => {
-                      const rank = resolveAdvisorRank(postUserId, userStats);
-                      return rank ? (
-                        <span className={`inline-flex rounded-full px-2 py-0.5 font-medium ${rank.className}`}>
-                          {rank.label}
-                        </span>
-                      ) : null;
-                    })()}
                   </div>
                 </div>
                 {post.targetUrl && (
@@ -980,14 +973,7 @@ export default function PostDetailPage() {
                           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-xs">返信者：{resolveDisplayName(reply.userId, userStats)}</span>
-                              {(() => {
-                                const rank = resolveAdvisorRank(reply.userId, userStats);
-                                return rank ? (
-                                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${rank.className}`}>
-                                    {rank.label}
-                                  </span>
-                                ) : null;
-                              })()}
+                              <AdvisorRankBadge rank={resolveAdvisorRank(reply.userId, userStats)} />
                               <time className="text-xs" dateTime={reply.createdAt}>
                                 {formatDateTime(reply.createdAt)}
                               </time>
