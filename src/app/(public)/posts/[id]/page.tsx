@@ -15,6 +15,7 @@ import { CategoryBadge } from "@/components/CategoryBadge";
 import { ReportButton } from "@/components/ReportButton";
 import { getAdvisorRank, type AdvisorRankInfo } from "@/lib/advisor-rank";
 import { AdvisorRankBadge } from "@/components/AdvisorRankBadge";
+import { AvatarIcon } from "@/components/AvatarIcon";
 
 const VALID_CATEGORIES: Set<string> = new Set(CATEGORIES.map((c) => c.slug));
 
@@ -27,6 +28,7 @@ type UserStat = {
   user_id: string;
   display_name: string | null;
   username: string | null;
+  avatar_url: string | null;
   post_count: number;
   reply_count: number;
   total_reply_likes: number;
@@ -43,6 +45,11 @@ function resolveDisplayName(userId: string | null, map: Map<string, UserStat>): 
 function resolveUsername(userId: string | null, map: Map<string, UserStat>): string | null {
   if (!userId) return null;
   return map.get(userId)?.username?.trim() || null;
+}
+
+function resolveAvatarUrl(userId: string | null, map: Map<string, UserStat>): string | null {
+  if (!userId) return null;
+  return map.get(userId)?.avatar_url ?? null;
 }
 
 function resolveAdvisorRank(userId: string | null, map: Map<string, UserStat>): AdvisorRankInfo | null {
@@ -269,7 +276,7 @@ export default function PostDetailPage() {
         const [profilesResult, statsResult] = await Promise.all([
           supabase
             .from("profiles")
-            .select("id, display_name, username")
+            .select("id, display_name, username, avatar_url")
             .in("id", uniqueIds),
           supabase
             .from("user_stats")
@@ -278,11 +285,11 @@ export default function PostDetailPage() {
         ]);
 
         const profileMap = new Map(
-          ((profilesResult.data ?? []) as { id: string; display_name: string | null; username: string | null }[])
-            .map((p) => [p.id, { display_name: p.display_name, username: p.username }]),
+          ((profilesResult.data ?? []) as { id: string; display_name: string | null; username: string | null; avatar_url: string | null }[])
+            .map((p) => [p.id, { display_name: p.display_name, username: p.username, avatar_url: p.avatar_url }]),
         );
         const rankMap = new Map(
-          ((statsResult.data ?? []) as Omit<UserStat, "display_name" | "username">[])
+          ((statsResult.data ?? []) as Omit<UserStat, "display_name" | "username" | "avatar_url">[])
             .map((s) => [s.user_id, s]),
         );
 
@@ -293,6 +300,7 @@ export default function PostDetailPage() {
               user_id: id,
               display_name: profileMap.get(id)?.display_name ?? null,
               username: profileMap.get(id)?.username ?? null,
+              avatar_url: profileMap.get(id)?.avatar_url ?? null,
               post_count: rankMap.get(id)?.post_count ?? 0,
               reply_count: rankMap.get(id)?.reply_count ?? 0,
               total_reply_likes: rankMap.get(id)?.total_reply_likes ?? 0,
@@ -570,10 +578,10 @@ export default function PostDetailPage() {
     // 新規返信が画面に追加される時点で表示名が解決済みになる。
     if (user?.id && !userStats.has(user.id)) {
       const [profileRes, statsRes] = await Promise.all([
-        supabase.from("profiles").select("display_name, username").eq("id", user.id).maybeSingle(),
+        supabase.from("profiles").select("display_name, username, avatar_url").eq("id", user.id).maybeSingle(),
         supabase.from("user_stats").select("user_id, post_count, reply_count, total_reply_likes, best_answer_count").eq("user_id", user.id).maybeSingle(),
       ]);
-      const profileData = profileRes.data as { display_name: string | null; username: string | null } | null;
+      const profileData = profileRes.data as { display_name: string | null; username: string | null; avatar_url: string | null } | null;
       const statsData = statsRes.data as { post_count: number; reply_count: number; total_reply_likes: number; best_answer_count: number } | null;
       setUserStats((prev) => {
         const next = new Map(prev);
@@ -581,6 +589,7 @@ export default function PostDetailPage() {
           user_id: user.id,
           display_name: profileData?.display_name ?? null,
           username: profileData?.username ?? null,
+          avatar_url: profileData?.avatar_url ?? null,
           post_count: statsData?.post_count ?? 0,
           reply_count: statsData?.reply_count ?? 0,
           total_reply_likes: statsData?.total_reply_likes ?? 0,
@@ -798,6 +807,11 @@ export default function PostDetailPage() {
                     })()}
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+                    <AvatarIcon
+                      avatarUrl={resolveAvatarUrl(postUserId, userStats)}
+                      name={resolveDisplayName(postUserId, userStats)}
+                      size={20}
+                    />
                     <span>
                       投稿者：
                       {resolveUsername(postUserId, userStats) ? (
@@ -1019,6 +1033,11 @@ export default function PostDetailPage() {
                           )}
                           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
                             <div className="flex flex-wrap items-center gap-2">
+                              <AvatarIcon
+                                avatarUrl={resolveAvatarUrl(reply.userId, userStats)}
+                                name={resolveDisplayName(reply.userId, userStats)}
+                                size={20}
+                              />
                               <span className="text-xs">
                                 返信者：
                                 {resolveUsername(reply.userId, userStats) ? (

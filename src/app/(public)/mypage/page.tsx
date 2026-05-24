@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase/client";
 import { formatDateTime } from "@/lib/format";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { getAdvisorRank } from "@/lib/advisor-rank";
 import { AdvisorRankBadge } from "@/components/AdvisorRankBadge";
+import AvatarEditor from "react-avatar-editor";
+import { AvatarIcon } from "@/components/AvatarIcon";
+import { compressAvatar } from "@/lib/compress-image";
 import type { CategorySlug } from "@/lib/categories";
 
 const MAX_DISPLAY_NAME_LENGTH = 20;
@@ -53,6 +56,18 @@ export default function MyPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // avatar
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(null);
+  const [pendingAvatarBlob, setPendingAvatarBlob] = useState<Blob | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropZoom, setCropZoom] = useState(1.2);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<AvatarEditor>(null);
+  const cropContainerRef = useRef<HTMLDivElement>(null);
+  const cropZoomRef = useRef(cropZoom);
+
   // username
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
   const [usernameInput, setUsernameInput] = useState("");
@@ -75,7 +90,7 @@ export default function MyPage() {
         await Promise.all([
           supabase
             .from("profiles")
-            .select("display_name, username")
+            .select("display_name, username, avatar_url")
             .eq("id", user.id)
             .maybeSingle(),
           supabase
@@ -95,15 +110,111 @@ export default function MyPage() {
             .maybeSingle(),
         ]);
 
-      const profile = profileResult.data as { display_name: string | null; username: string | null } | null;
+      const profile = profileResult.data as { display_name: string | null; username: string | null; avatar_url: string | null } | null;
       setDisplayName(profile?.display_name ?? "");
       setCurrentUsername(profile?.username ?? null);
+      setCurrentAvatarUrl(profile?.avatar_url ?? null);
       setMyPosts((postsResult.data ?? []) as MyPost[]);
       setMyReplies((repliesResult.data ?? []) as unknown as MyReply[]);
       setMyStats(statsResult.data as MyStats | null);
       setFetching(false);
     })();
   }, [user, loading]);
+
+  useEffect(() => {
+    cropZoomRef.current = cropZoom;
+  }, [cropZoom]);
+
+  useEffect(() => {
+    const el = cropContainerRef.current;
+    if (!el || !cropSrc) return;
+
+    let startDist: number | null = null;
+    let startZoom = 1.2;
+
+    function getDist(touches: TouchList): number {
+      return Math.hypot(
+        touches[1].clientX - touches[0].clientX,
+        touches[1].clientY - touches[0].clientY,
+      );
+    }
+
+    function onWheel(e: WheelEvent) {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const sensitivity = e.deltaMode === 0 ? 0.005 : 0.05;
+      setCropZoom((z) => Math.min(3, Math.max(1, z + -e.deltaY * sensitivity)));
+    }
+
+    function onTouchStart(e: TouchEvent) {
+      if (e.touches.length === 2) {
+        startDist = getDist(e.touches);
+        startZoom = cropZoomRef.current;
+        e.stopPropagation();
+      }
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      if (e.touches.length !== 2 || startDist === null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setCropZoom(Math.min(3, Math.max(1, startZoom * (getDist(e.touches) / startDist))));
+    }
+
+    function onTouchEnd(e: TouchEvent) {
+      if (e.touches.length < 2) startDist = null;
+    }
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("touchstart", onTouchStart, { capture: true, passive: true });
+    el.addEventListener("touchmove", onTouchMove, { capture: true, passive: false });
+    el.addEventListener("touchend", onTouchEnd, { capture: true, passive: true });
+
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchstart", onTouchStart, { capture: true });
+      el.removeEventListener("touchmove", onTouchMove, { capture: true });
+      el.removeEventListener("touchend", onTouchEnd, { capture: true });
+    };
+  }, [cropSrc]);
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarError(null);
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(URL.createObjectURL(file));
+    setCropZoom(1.2);
+    e.target.value = "";
+  }
+
+  function handleCropCancel() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+    setCropZoom(1.2);
+  }
+
+  function handleCropConfirm() {
+    if (!editorRef.current) return;
+    setAvatarError(null);
+    const canvas = editorRef.current.getImageScaledToCanvas();
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          setAvatarError("画像の処理に失敗しました");
+          return;
+        }
+        if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+        setAvatarPreviewUrl(URL.createObjectURL(blob));
+        setPendingAvatarBlob(blob);
+        if (cropSrc) URL.revokeObjectURL(cropSrc);
+        setCropSrc(null);
+        setCropZoom(1.2);
+      },
+      "image/webp",
+      0.92,
+    );
+  }
 
   async function handleSaveUsername(e: React.FormEvent) {
     e.preventDefault();
@@ -169,10 +280,11 @@ export default function MyPage() {
     setSavingUsername(false);
   }
 
-  async function handleSaveDisplayName() {
+  async function handleSave() {
     const trimmed = displayName.trim();
     setError(null);
     setSuccess(false);
+    setAvatarError(null);
 
     if (!trimmed) {
       setError("名前を入力してください");
@@ -181,22 +293,53 @@ export default function MyPage() {
     if (!user) return;
 
     setSaving(true);
-    const { error: upsertError } = await supabase
-      .from("profiles")
-      .upsert({
-        id: user.id,
-        display_name: trimmed,
-        updated_at: new Date().toISOString(),
-      });
+
+    let newAvatarUrl: string | null = null;
+    if (pendingAvatarBlob) {
+      let uploadBlob: Blob;
+      try {
+        uploadBlob = await compressAvatar(pendingAvatarBlob);
+      } catch {
+        setError("画像を2MB以内に圧縮できませんでした。別の画像を選択してください。");
+        setSaving(false);
+        return;
+      }
+
+      const path = `${user.id}/avatar.webp`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, uploadBlob, { upsert: true, contentType: "image/webp" });
+
+      if (uploadError) {
+        setError("画像のアップロードに失敗しました。しばらくしてから再度お試しください。");
+        setSaving(false);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+      newAvatarUrl = `${urlData.publicUrl}?v=${Date.now()}`;
+    }
+
+    const payload: Record<string, string> = {
+      id: user.id,
+      display_name: trimmed,
+      updated_at: new Date().toISOString(),
+    };
+    if (newAvatarUrl) payload.avatar_url = newAvatarUrl;
+
+    const { error: upsertError } = await supabase.from("profiles").upsert(payload);
 
     if (upsertError) {
-      console.error("Failed to save display_name:", upsertError.message);
       setError("保存に失敗しました。しばらくしてから再度お試しください。");
       setSaving(false);
       return;
     }
 
     setDisplayName(trimmed);
+    if (newAvatarUrl) {
+      setCurrentAvatarUrl(newAvatarUrl);
+      setPendingAvatarBlob(null);
+    }
     await refreshDisplayName();
     setSuccess(true);
     setSaving(false);
@@ -283,6 +426,88 @@ export default function MyPage() {
             <div className="mt-4 h-24 animate-pulse rounded-xl bg-zinc-100" />
           ) : (
             <div className="mt-4 space-y-6">
+
+              {/* プロフィール画像 */}
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-zinc-800">プロフィール画像</p>
+                {cropSrc ? (
+                  <div ref={cropContainerRef} className="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                    <p className="text-center text-xs text-zinc-500">
+                      ドラッグで位置調整・スライダーでズーム
+                    </p>
+                    <div className="flex justify-center">
+                      <AvatarEditor
+                        ref={editorRef}
+                        image={cropSrc}
+                        width={260}
+                        height={260}
+                        border={30}
+                        borderRadius={130}
+                        color={[244, 244, 245, 0.75]}
+                        scale={cropZoom}
+                      />
+                    </div>
+                    <div className="space-y-1 px-1">
+                      <div className="flex items-center justify-between text-xs text-zinc-400">
+                        <span>縮小</span>
+                        <span>拡大</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={3}
+                        step={0.01}
+                        value={cropZoom}
+                        onChange={(e) => setCropZoom(Number(e.target.value))}
+                        className="w-full accent-zinc-900"
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={handleCropCancel}
+                        className="flex-1 rounded-full border border-zinc-200 py-2 text-sm text-zinc-700 transition hover:border-zinc-400 hover:bg-white"
+                      >
+                        キャンセル
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCropConfirm}
+                        className="flex-1 rounded-full bg-zinc-900 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
+                      >
+                        決定
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-4">
+                    <AvatarIcon
+                      avatarUrl={avatarPreviewUrl ?? currentAvatarUrl}
+                      name={displayName || "?"}
+                      size={64}
+                    />
+                    <div>
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={handleAvatarChange}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => avatarInputRef.current?.click()}
+                        className="rounded-full border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition hover:border-zinc-400 hover:bg-zinc-50"
+                      >
+                        画像を変更
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {avatarError && (
+                  <p className="text-xs text-red-600" role="alert">{avatarError}</p>
+                )}
+              </div>
 
               {/* 名前 */}
               <div className="space-y-2">
@@ -374,10 +599,10 @@ export default function MyPage() {
                 <p className="text-sm text-emerald-600" role="status">保存しました</p>
               )}
 
-              {/* 保存するボタン（名前のみ保存） */}
+              {/* 保存するボタン */}
               <button
                 type="button"
-                onClick={handleSaveDisplayName}
+                onClick={handleSave}
                 disabled={saving}
                 className="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
               >
