@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ADVISOR_RANK_CONDITIONS } from "@/lib/advisor-rank";
+import { AdvisorRankBadge } from "@/components/AdvisorRankBadge";
 
 export default function AdvisorRanksPage() {
   return (
@@ -26,14 +27,14 @@ export default function AdvisorRanksPage() {
           <ul className="mt-4 space-y-3">
             {ADVISOR_RANK_CONDITIONS.map((r) => (
               <li key={r.label} className="flex items-start gap-3">
-                <span className={`mt-0.5 inline-flex shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${r.className}`}>
-                  {r.label}
+                <span className="mt-0.5 shrink-0">
+                  <AdvisorRankBadge rank={r} />
                 </span>
                 <span className="text-sm text-zinc-600">{r.condition}</span>
               </li>
             ))}
             <li className="flex items-start gap-3">
-              <span className="mt-0.5 inline-flex shrink-0 rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-500">
+              <span className="mt-0.5 inline-flex shrink-0 items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-500">
                 ランクなし
               </span>
               <span className="text-sm text-zinc-600">上記の条件を満たしていない場合</span>

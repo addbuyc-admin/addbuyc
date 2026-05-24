@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import { formatDateTime } from "@/lib/format";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { getAdvisorRank } from "@/lib/advisor-rank";
+import { AdvisorRankBadge } from "@/components/AdvisorRankBadge";
 import type { CategorySlug } from "@/lib/categories";
 
 const MAX_LENGTH = 20;
@@ -188,13 +189,7 @@ export default function MyPage() {
               </div>
               <div className="mt-4 flex items-center gap-3">
                 <span className="text-sm text-zinc-600">現在のランク：</span>
-                {rank !== null ? (
-                  <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${rank.className}`}>
-                    {rank.label}
-                  </span>
-                ) : (
-                  <span className="text-sm text-zinc-400">ランクなし</span>
-                )}
+                <AdvisorRankBadge rank={rank} showNone />
               </div>
               <div className="mt-3">
                 <Link
