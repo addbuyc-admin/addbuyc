@@ -798,7 +798,19 @@ export default function PostDetailPage() {
                     })()}
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
-                    <span>投稿者：{resolveDisplayName(postUserId, userStats)}</span>
+                    <span>
+                      投稿者：
+                      {resolveUsername(postUserId, userStats) ? (
+                        <Link
+                          href={`/users/${resolveUsername(postUserId, userStats)}`}
+                          className="underline-offset-2 hover:text-zinc-700 hover:underline"
+                        >
+                          {resolveDisplayName(postUserId, userStats)}
+                        </Link>
+                      ) : (
+                        resolveDisplayName(postUserId, userStats)
+                      )}
+                    </span>
                   </div>
                 </div>
                 {post.targetUrl && (
