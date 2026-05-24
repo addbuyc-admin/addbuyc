@@ -8,7 +8,7 @@ import { formatDateTime } from "@/lib/format";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { getAdvisorRank } from "@/lib/advisor-rank";
 import { AdvisorRankBadge } from "@/components/AdvisorRankBadge";
-import AvatarEditor from "react-avatar-editor";
+import AvatarEditor, { type AvatarEditorRef } from "react-avatar-editor";
 import { AvatarIcon } from "@/components/AvatarIcon";
 import { compressAvatar } from "@/lib/compress-image";
 import type { CategorySlug } from "@/lib/categories";
@@ -64,7 +64,7 @@ export default function MyPage() {
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropZoom, setCropZoom] = useState(1.2);
   const avatarInputRef = useRef<HTMLInputElement>(null);
-  const editorRef = useRef<AvatarEditor>(null);
+  const editorRef = useRef<AvatarEditorRef>(null);
   const cropContainerRef = useRef<HTMLDivElement>(null);
   const cropZoomRef = useRef(cropZoom);
 
