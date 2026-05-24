@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import { formatDateTime } from "@/lib/format";
 import { getAdvisorRank } from "@/lib/advisor-rank";
 import { AdvisorRankBadge } from "@/components/AdvisorRankBadge";
+import { AvatarIcon } from "@/components/AvatarIcon";
 
 const REPLY_EXCERPT_LEN = 100;
 
@@ -19,6 +20,7 @@ type Profile = {
   id: string;
   display_name: string | null;
   username: string;
+  avatar_url: string | null;
   created_at: string;
 };
 
@@ -59,7 +61,7 @@ export default function UserProfilePage() {
     void (async () => {
       const profileRes = await supabase
         .from("profiles")
-        .select("id, display_name, username, created_at")
+        .select("id, display_name, username, avatar_url, created_at")
         .eq("username", username)
         .maybeSingle();
 
@@ -127,13 +129,16 @@ export default function UserProfilePage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
-      <div className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-              {displayName}
-            </h1>
-            <p className="mt-1 text-sm text-zinc-500">@{profile.username}</p>
+      <div className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <AvatarIcon avatarUrl={profile.avatar_url} name={displayName} size={72} />
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+                {displayName}
+              </h1>
+              <p className="mt-0.5 text-sm text-zinc-500">@{profile.username}</p>
+            </div>
           </div>
           {rank && <AdvisorRankBadge rank={rank} />}
         </div>
