@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
+import { useAuth } from "@/context/AuthProvider";
 
 const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
 const MAX_DISPLAY_NAME = 20;
@@ -43,6 +44,7 @@ function toErrorMessage(msg: string): string {
 
 export default function SignUpPage() {
   const router = useRouter();
+  const { refreshDisplayName } = useAuth();
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -123,6 +125,8 @@ export default function SignUpPage() {
         },
         { onConflict: "id" },
       );
+      // upsert 後に AuthProvider の displayName 状態を更新してから遷移
+      await refreshDisplayName();
       router.push("/");
       router.refresh();
       return;

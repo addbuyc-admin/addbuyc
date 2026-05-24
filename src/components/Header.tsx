@@ -37,9 +37,8 @@ export function Header() {
                 <Link
                   href="/mypage"
                   className="max-w-[100px] truncate text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-900 hover:underline"
-                  title={user.email ?? undefined}
                 >
-                  {displayName || user.email?.split("@")[0]}
+                  {displayName ?? "マイページ"}
                 </Link>
                 <button
                   type="button"

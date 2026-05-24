@@ -26,23 +26,26 @@ function toCategory(value: string | null): CategorySlug {
 type UserStat = {
   user_id: string;
   display_name: string | null;
+  username: string | null;
   post_count: number;
   reply_count: number;
   total_reply_likes: number;
   best_answer_count: number;
 };
 
-
 function resolveDisplayName(userId: string | null, map: Map<string, UserStat>): string {
   if (!userId) return "ゲストユーザー";
   const stat = map.get(userId);
-  return stat?.display_name?.trim() || "ゲストユーザー";
+  if (!stat) return "ユーザー";
+  return stat.display_name?.trim() || stat.username?.trim() || "ユーザー";
 }
 
 function resolveAdvisorRank(userId: string | null, map: Map<string, UserStat>): AdvisorRankInfo | null {
   if (!userId) return null;
   const stat = map.get(userId);
-  if (!stat || !stat.display_name?.trim()) return null;
+  if (!stat) return null;
+  const hasIdentity = stat.display_name?.trim() || stat.username?.trim();
+  if (!hasIdentity) return null;
   return getAdvisorRank(stat);
 }
 
@@ -261,7 +264,7 @@ export default function PostDetailPage() {
         const [profilesResult, statsResult] = await Promise.all([
           supabase
             .from("profiles")
-            .select("id, display_name")
+            .select("id, display_name, username")
             .in("id", uniqueIds),
           supabase
             .from("user_stats")
@@ -269,12 +272,12 @@ export default function PostDetailPage() {
             .in("user_id", uniqueIds),
         ]);
 
-        const displayNameMap = new Map(
-          ((profilesResult.data ?? []) as { id: string; display_name: string | null }[])
-            .map((p) => [p.id, p.display_name]),
+        const profileMap = new Map(
+          ((profilesResult.data ?? []) as { id: string; display_name: string | null; username: string | null }[])
+            .map((p) => [p.id, { display_name: p.display_name, username: p.username }]),
         );
         const rankMap = new Map(
-          ((statsResult.data ?? []) as Omit<UserStat, "display_name">[])
+          ((statsResult.data ?? []) as Omit<UserStat, "display_name" | "username">[])
             .map((s) => [s.user_id, s]),
         );
 
@@ -283,7 +286,8 @@ export default function PostDetailPage() {
             id,
             {
               user_id: id,
-              display_name: displayNameMap.get(id) ?? null,
+              display_name: profileMap.get(id)?.display_name ?? null,
+              username: profileMap.get(id)?.username ?? null,
               post_count: rankMap.get(id)?.post_count ?? 0,
               reply_count: rankMap.get(id)?.reply_count ?? 0,
               total_reply_likes: rankMap.get(id)?.total_reply_likes ?? 0,
@@ -553,6 +557,32 @@ export default function PostDetailPage() {
       setReplyError("返信の投稿に失敗しました。");
       setSubmittingReply(false);
       return;
+    }
+
+    // 返信投稿者が userStats 未登録の場合（ページ読み込み後初めて返信するケース）、
+    // setReplies より先にプロフィールを取得して追加する。
+    // React 18 の automatic batching により setUserStats + setReplies は1回の再レンダーにまとまるため、
+    // 新規返信が画面に追加される時点で表示名が解決済みになる。
+    if (user?.id && !userStats.has(user.id)) {
+      const [profileRes, statsRes] = await Promise.all([
+        supabase.from("profiles").select("display_name, username").eq("id", user.id).maybeSingle(),
+        supabase.from("user_stats").select("user_id, post_count, reply_count, total_reply_likes, best_answer_count").eq("user_id", user.id).maybeSingle(),
+      ]);
+      const profileData = profileRes.data as { display_name: string | null; username: string | null } | null;
+      const statsData = statsRes.data as { post_count: number; reply_count: number; total_reply_likes: number; best_answer_count: number } | null;
+      setUserStats((prev) => {
+        const next = new Map(prev);
+        next.set(user.id, {
+          user_id: user.id,
+          display_name: profileData?.display_name ?? null,
+          username: profileData?.username ?? null,
+          post_count: statsData?.post_count ?? 0,
+          reply_count: statsData?.reply_count ?? 0,
+          total_reply_likes: statsData?.total_reply_likes ?? 0,
+          best_answer_count: statsData?.best_answer_count ?? 0,
+        });
+        return next;
+      });
     }
 
     setReplies((prev) => [...prev, mapRowToReply(data as ReplyRow)]);
