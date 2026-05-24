@@ -40,6 +40,11 @@ function resolveDisplayName(userId: string | null, map: Map<string, UserStat>): 
   return stat.display_name?.trim() || stat.username?.trim() || "ユーザー";
 }
 
+function resolveUsername(userId: string | null, map: Map<string, UserStat>): string | null {
+  if (!userId) return null;
+  return map.get(userId)?.username?.trim() || null;
+}
+
 function resolveAdvisorRank(userId: string | null, map: Map<string, UserStat>): AdvisorRankInfo | null {
   if (!userId) return null;
   const stat = map.get(userId);
@@ -1002,7 +1007,19 @@ export default function PostDetailPage() {
                           )}
                           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-xs">返信者：{resolveDisplayName(reply.userId, userStats)}</span>
+                              <span className="text-xs">
+                                返信者：
+                                {resolveUsername(reply.userId, userStats) ? (
+                                  <Link
+                                    href={`/users/${resolveUsername(reply.userId, userStats)}`}
+                                    className="underline-offset-2 hover:text-zinc-700 hover:underline"
+                                  >
+                                    {resolveDisplayName(reply.userId, userStats)}
+                                  </Link>
+                                ) : (
+                                  resolveDisplayName(reply.userId, userStats)
+                                )}
+                              </span>
                               <AdvisorRankBadge rank={resolveAdvisorRank(reply.userId, userStats)} />
                               <time className="text-xs" dateTime={reply.createdAt}>
                                 {formatDateTime(reply.createdAt)}
