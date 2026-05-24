@@ -5,6 +5,27 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
 
+const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
+const MAX_DISPLAY_NAME = 20;
+
+function normalizeUsername(value: string): string {
+  return value.toLowerCase().trim();
+}
+
+function validateDisplayName(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return "名前を入力してください";
+  if (trimmed.length > MAX_DISPLAY_NAME) return `${MAX_DISPLAY_NAME}文字以内で入力してください`;
+  return null;
+}
+
+function validateUsername(value: string): string | null {
+  if (!value) return "ユーザー名を入力してください";
+  if (!USERNAME_REGEX.test(value))
+    return "3〜20文字・英小文字/数字/アンダースコアのみ使用できます";
+  return null;
+}
+
 function toErrorMessage(msg: string): string {
   if (
     msg.includes("User already registered") ||
@@ -22,22 +43,66 @@ function toErrorMessage(msg: string): string {
 
 export default function SignUpPage() {
   const router = useRouter();
+  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [displayNameError, setDisplayNameError] = useState<string | null>(null);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
+  function handleUsernameChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setUsername(normalizeUsername(e.target.value));
+    setUsernameError(null);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setDisplayNameError(null);
+    setUsernameError(null);
+
+    const trimmedDisplayName = displayName.trim();
+    const normalizedUsername = normalizeUsername(username);
+
+    const displayNameErr = validateDisplayName(trimmedDisplayName);
+    if (displayNameErr) {
+      setDisplayNameError(displayNameErr);
+      return;
+    }
+
+    const usernameErr = validateUsername(normalizedUsername);
+    if (usernameErr) {
+      setUsernameError(usernameErr);
+      return;
+    }
+
     setLoading(true);
+
+    // username 重複チェック
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", normalizedUsername)
+      .maybeSingle();
+
+    if (existing) {
+      setUsernameError("このユーザー名はすでに使用されています");
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: {
+          username: normalizedUsername,
+          display_name: trimmedDisplayName,
+        },
       },
     });
 
@@ -47,14 +112,23 @@ export default function SignUpPage() {
       return;
     }
 
-    // メール確認不要の設定の場合はセッションが即時発行される
-    if (data.session) {
+    // email confirm OFF（現状）: セッションが即時発行される
+    if (data.session && data.user) {
+      await supabase.from("profiles").upsert(
+        {
+          id: data.user.id,
+          username: normalizedUsername,
+          display_name: trimmedDisplayName,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
       router.push("/");
       router.refresh();
       return;
     }
 
-    // メール確認が必要な場合
+    // email confirm ON（将来）: メール送信後に待機画面へ
     setSent(true);
     setLoading(false);
   }
@@ -62,7 +136,7 @@ export default function SignUpPage() {
   if (sent) {
     return (
       <div className="mx-auto max-w-sm px-4 py-16">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm text-center">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center shadow-sm">
           <p className="text-lg font-semibold text-zinc-900">
             確認メールを送信しました
           </p>
@@ -97,6 +171,63 @@ export default function SignUpPage() {
         className="flex flex-col gap-5 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
       >
         <div className="space-y-2">
+          <label htmlFor="displayName" className="text-sm font-medium text-zinc-800">
+            名前
+          </label>
+          <input
+            id="displayName"
+            type="text"
+            value={displayName}
+            onChange={(e) => {
+              setDisplayName(e.target.value);
+              setDisplayNameError(null);
+            }}
+            required
+            autoComplete="name"
+            placeholder="例：山田太郎"
+            className={`w-full rounded-xl border bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:ring-2 ${
+              displayNameError
+                ? "border-red-300 focus:border-red-400"
+                : "border-zinc-200 focus:border-zinc-300"
+            }`}
+          />
+          {displayNameError ? (
+            <p className="text-xs text-red-600" role="alert">{displayNameError}</p>
+          ) : (
+            <p className="text-xs text-zinc-400">
+              {displayName.trim().length}/{MAX_DISPLAY_NAME}文字
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="username" className="text-sm font-medium text-zinc-800">
+            ユーザー名
+          </label>
+          <input
+            id="username"
+            type="text"
+            value={username}
+            onChange={handleUsernameChange}
+            required
+            autoComplete="username"
+            placeholder="例：taro_yamada"
+            className={`w-full rounded-xl border bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:ring-2 ${
+              usernameError
+                ? "border-red-300 focus:border-red-400"
+                : "border-zinc-200 focus:border-zinc-300"
+            }`}
+          />
+          {usernameError ? (
+            <p className="text-xs text-red-600" role="alert">{usernameError}</p>
+          ) : (
+            <p className="text-xs text-zinc-400">
+              3〜20文字・英小文字 / 数字 / アンダースコアのみ
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
           <label htmlFor="email" className="text-sm font-medium text-zinc-800">
             メールアドレス
           </label>
@@ -112,10 +243,7 @@ export default function SignUpPage() {
         </div>
 
         <div className="space-y-2">
-          <label
-            htmlFor="password"
-            className="text-sm font-medium text-zinc-800"
-          >
+          <label htmlFor="password" className="text-sm font-medium text-zinc-800">
             パスワード
           </label>
           <input

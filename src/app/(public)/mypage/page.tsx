@@ -10,8 +10,9 @@ import { getAdvisorRank } from "@/lib/advisor-rank";
 import { AdvisorRankBadge } from "@/components/AdvisorRankBadge";
 import type { CategorySlug } from "@/lib/categories";
 
-const MAX_LENGTH = 20;
+const MAX_DISPLAY_NAME_LENGTH = 20;
 const REPLY_EXCERPT_LEN = 60;
+const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
 
 function truncate(text: string, len = REPLY_EXCERPT_LEN): string {
   return text.length > len ? text.slice(0, len) + "…" : text;
@@ -52,6 +53,13 @@ export default function MyPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // username
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+  const [usernameInput, setUsernameInput] = useState("");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [usernameSuccess, setUsernameSuccess] = useState(false);
+  const [savingUsername, setSavingUsername] = useState(false);
+
   const [myPosts, setMyPosts] = useState<MyPost[]>([]);
   const [myReplies, setMyReplies] = useState<MyReply[]>([]);
   const [myStats, setMyStats] = useState<MyStats | null>(null);
@@ -67,7 +75,7 @@ export default function MyPage() {
         await Promise.all([
           supabase
             .from("profiles")
-            .select("display_name")
+            .select("display_name, username")
             .eq("id", user.id)
             .maybeSingle(),
           supabase
@@ -87,7 +95,9 @@ export default function MyPage() {
             .maybeSingle(),
         ]);
 
-      setDisplayName(profileResult.data?.display_name ?? "");
+      const profile = profileResult.data as { display_name: string | null; username: string | null } | null;
+      setDisplayName(profile?.display_name ?? "");
+      setCurrentUsername(profile?.username ?? null);
       setMyPosts((postsResult.data ?? []) as MyPost[]);
       setMyReplies((repliesResult.data ?? []) as unknown as MyReply[]);
       setMyStats(statsResult.data as MyStats | null);
@@ -95,14 +105,77 @@ export default function MyPage() {
     })();
   }, [user, loading]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSaveUsername(e: React.FormEvent) {
     e.preventDefault();
+    const normalized = usernameInput.toLowerCase().trim();
+    setUsernameError(null);
+    setUsernameSuccess(false);
+
+    if (!normalized) {
+      setUsernameError("ユーザー名を入力してください");
+      return;
+    }
+    if (!USERNAME_REGEX.test(normalized)) {
+      setUsernameError("3〜20文字・英小文字/数字/アンダースコアのみ使用できます");
+      return;
+    }
+    if (!user) return;
+
+    setSavingUsername(true);
+
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", normalized)
+      .maybeSingle();
+
+    if (existing) {
+      setUsernameError("このユーザー名はすでに使用されています");
+      setSavingUsername(false);
+      return;
+    }
+
+    const updatePayload: Record<string, string> = {
+      id: user.id,
+      username: normalized,
+      updated_at: new Date().toISOString(),
+    };
+    // display_name が未設定なら username で初期化
+    if (!displayName.trim()) {
+      updatePayload.display_name = normalized;
+    }
+
+    const { error: upsertError } = await supabase
+      .from("profiles")
+      .upsert(updatePayload, { onConflict: "id" });
+
+    if (upsertError) {
+      if (upsertError.message.includes("profiles_username_unique") || upsertError.message.includes("duplicate")) {
+        setUsernameError("このユーザー名はすでに使用されています");
+      } else {
+        setUsernameError("保存に失敗しました。しばらくしてから再度お試しください。");
+      }
+      setSavingUsername(false);
+      return;
+    }
+
+    setCurrentUsername(normalized);
+    if (!displayName.trim()) {
+      setDisplayName(normalized);
+      await refreshDisplayName();
+    }
+    setUsernameInput("");
+    setUsernameSuccess(true);
+    setSavingUsername(false);
+  }
+
+  async function handleSaveDisplayName() {
     const trimmed = displayName.trim();
     setError(null);
     setSuccess(false);
 
     if (!trimmed) {
-      setError("表示名を入力してください");
+      setError("名前を入力してください");
       return;
     }
     if (!user) return;
@@ -163,11 +236,10 @@ export default function MyPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
           マイページ
         </h1>
-        <p className="mt-2 text-sm text-zinc-500">{user.email}</p>
       </div>
 
       <div className="space-y-6">
-        {/* Phase L: 実績・ランク */}
+        {/* 実績・ランク */}
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="text-base font-semibold text-zinc-900">実績・アドバイザーランク</h2>
           {fetching ? (
@@ -203,22 +275,19 @@ export default function MyPage() {
           )}
         </div>
 
-        {/* Profile settings */}
+        {/* プロフィール設定 */}
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-zinc-900">
-            プロフィール設定
-          </h2>
+          <h2 className="text-base font-semibold text-zinc-900">プロフィール設定</h2>
 
           {fetching ? (
-            <div className="mt-4 h-12 animate-pulse rounded-xl bg-zinc-100" />
+            <div className="mt-4 h-24 animate-pulse rounded-xl bg-zinc-100" />
           ) : (
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+            <div className="mt-4 space-y-6">
+
+              {/* 名前 */}
               <div className="space-y-2">
-                <label
-                  htmlFor="displayName"
-                  className="text-sm font-medium text-zinc-800"
-                >
-                  表示名
+                <label htmlFor="displayName" className="text-sm font-medium text-zinc-800">
+                  名前
                 </label>
                 <input
                   id="displayName"
@@ -229,39 +298,96 @@ export default function MyPage() {
                     setError(null);
                     setSuccess(false);
                   }}
-                  maxLength={MAX_LENGTH}
+                  maxLength={MAX_DISPLAY_NAME_LENGTH}
                   placeholder="例：山田太郎"
                   className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
                 />
                 <p className="text-xs text-zinc-400">
-                  {displayName.length}/{MAX_LENGTH}文字 · 1〜{MAX_LENGTH}文字で設定してください
+                  {displayName.length}/{MAX_DISPLAY_NAME_LENGTH}文字
                 </p>
               </div>
 
+              {/* ユーザー名 */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-zinc-800">ユーザー名</p>
+                {currentUsername ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[15px] text-zinc-900">{currentUsername}</span>
+                    <span className="text-xs text-zinc-400">（変更は現在非対応）</span>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveUsername} className="space-y-2">
+                    <input
+                      type="text"
+                      value={usernameInput}
+                      onChange={(e) => {
+                        setUsernameInput(e.target.value.toLowerCase().trim());
+                        setUsernameError(null);
+                        setUsernameSuccess(false);
+                      }}
+                      placeholder="例：taro_yamada"
+                      autoComplete="username"
+                      className={`w-full rounded-xl border bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:ring-2 ${
+                        usernameError
+                          ? "border-red-300 focus:border-red-400"
+                          : "border-zinc-200 focus:border-zinc-300"
+                      }`}
+                    />
+                    {usernameError ? (
+                      <p className="text-xs text-red-600" role="alert">{usernameError}</p>
+                    ) : usernameSuccess ? (
+                      <p className="text-xs text-emerald-600" role="status">ユーザー名を設定しました</p>
+                    ) : (
+                      <p className="text-xs text-zinc-400">
+                        3〜20文字・英小文字 / 数字 / アンダースコアのみ
+                      </p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={savingUsername}
+                      className="rounded-full bg-zinc-900 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {savingUsername ? "設定中…" : "設定する"}
+                    </button>
+                  </form>
+                )}
+              </div>
+
+              {/* メールアドレス */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-zinc-800">メールアドレス</p>
+                <p className="text-[15px] text-zinc-900">{user.email}</p>
+              </div>
+
+              {/* パスワード */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-zinc-800">パスワード</p>
+                <p className="text-[15px] tracking-widest text-zinc-900">••••••••</p>
+                <p className="text-xs text-zinc-400">変更機能は今後対応予定</p>
+              </div>
+
+              {/* 保存フィードバック */}
               {error && (
-                <p className="text-sm text-red-600" role="alert">
-                  {error}
-                </p>
+                <p className="text-sm text-red-600" role="alert">{error}</p>
               )}
-
               {success && (
-                <p className="text-sm text-emerald-600" role="status">
-                  保存しました
-                </p>
+                <p className="text-sm text-emerald-600" role="status">保存しました</p>
               )}
 
+              {/* 保存するボタン（名前のみ保存） */}
               <button
-                type="submit"
+                type="button"
+                onClick={handleSaveDisplayName}
                 disabled={saving}
                 className="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {saving ? "保存中…" : "保存する"}
               </button>
-            </form>
+            </div>
           )}
         </div>
 
-        {/* Phase J: 投稿一覧 */}
+        {/* 投稿一覧 */}
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="text-base font-semibold text-zinc-900">投稿一覧</h2>
           {fetching ? (
@@ -309,7 +435,7 @@ export default function MyPage() {
           )}
         </div>
 
-        {/* Phase K: 返信一覧 */}
+        {/* 返信一覧 */}
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="text-base font-semibold text-zinc-900">返信一覧</h2>
           {fetching ? (
