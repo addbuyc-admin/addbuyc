@@ -14,13 +14,31 @@ function isValidCategory(value: string | null): value is CategorySlug {
   return CATEGORIES.some((c) => c.slug === value);
 }
 
-function buildHref(params: { category?: string | null; q?: string }) {
+function buildHref(params: {
+  category?: string | null;
+  q?: string;
+  status?: "open" | "resolved" | null;
+  sort?: "likes" | null;
+}) {
   const p = new URLSearchParams();
   if (params.category) p.set("category", params.category);
   if (params.q) p.set("q", params.q);
+  if (params.status) p.set("status", params.status);
+  if (params.sort) p.set("sort", params.sort);
   const qs = p.toString();
   return qs ? `/posts?${qs}` : "/posts";
 }
+
+const STATUS_OPTIONS = [
+  { value: null, label: "すべて" },
+  { value: "open", label: "相談中" },
+  { value: "resolved", label: "解決済み" },
+] as const;
+
+const SORT_OPTIONS = [
+  { value: null, label: "新着順" },
+  { value: "likes", label: "Like順" },
+] as const;
 
 function PostListWithFilter() {
   const { posts, ready } = usePosts();
@@ -28,16 +46,17 @@ function PostListWithFilter() {
   const searchParams = useSearchParams();
 
   const rawCategory = searchParams.get("category");
-  const activeCategory: CategorySlug | null = isValidCategory(rawCategory)
-    ? rawCategory
-    : null;
+  const activeCategory: CategorySlug | null = isValidCategory(rawCategory) ? rawCategory : null;
   const q = searchParams.get("q")?.trim() ?? "";
+  const rawStatus = searchParams.get("status");
+  const activeStatus: "open" | "resolved" | null =
+    rawStatus === "open" ? "open" : rawStatus === "resolved" ? "resolved" : null;
+  const rawSort = searchParams.get("sort");
+  const activeSort: "likes" | null = rawSort === "likes" ? "likes" : null;
 
-  const sorted = [...posts].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
+  const hasFilter = !!(q || activeCategory || activeStatus);
 
-  const filtered = sorted
+  const filtered = posts
     .filter((p) => !activeCategory || p.category === activeCategory)
     .filter((p) => {
       if (!q) return true;
@@ -46,17 +65,26 @@ function PostListWithFilter() {
         p.title.toLowerCase().includes(lower) ||
         p.description.toLowerCase().includes(lower)
       );
+    })
+    .filter((p) => {
+      if (!activeStatus) return true;
+      return activeStatus === "open" ? !p.hasBestAnswer : p.hasBestAnswer;
     });
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (activeSort === "likes") return b.likes - a.likes;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 
   function handleSearch(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const newQ = (new FormData(e.currentTarget).get("search") as string)?.trim() ?? "";
-    router.push(buildHref({ category: activeCategory, q: newQ }));
+    router.push(buildHref({ category: activeCategory, q: newQ, status: activeStatus, sort: activeSort }));
   }
 
   return (
     <>
-      {/* Search input */}
+      {/* キーワード検索 */}
       <form key={q} onSubmit={handleSearch} className="mb-4 flex gap-2">
         <input
           name="search"
@@ -73,7 +101,7 @@ function PostListWithFilter() {
         </button>
         {q && (
           <Link
-            href={buildHref({ category: activeCategory })}
+            href={buildHref({ category: activeCategory, status: activeStatus, sort: activeSort })}
             className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
           >
             クリア
@@ -81,81 +109,110 @@ function PostListWithFilter() {
         )}
       </form>
 
-      {/* Category filter pills */}
-      <div className="mb-6 flex flex-wrap gap-2">
-        <Link
-          href={buildHref({ q })}
-          className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition ${
-            !activeCategory
-              ? "bg-zinc-900 text-white"
-              : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-          }`}
-        >
-          すべて
-        </Link>
-        {CATEGORIES.map((cat) => (
+      {/* カテゴリ絞り込み（横スクロール） */}
+      <div className="mb-4 overflow-x-auto">
+        <div className="flex min-w-max gap-2 pb-1">
           <Link
-            key={cat.slug}
-            href={buildHref({ category: cat.slug, q })}
+            href={buildHref({ q, status: activeStatus, sort: activeSort })}
             className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition ${
-              activeCategory === cat.slug
+              !activeCategory
                 ? "bg-zinc-900 text-white"
-                : `${cat.badgeClassName} hover:opacity-80`
+                : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
             }`}
           >
-            {cat.label}
+            すべて
           </Link>
-        ))}
+          {CATEGORIES.map((cat) => (
+            <Link
+              key={cat.slug}
+              href={buildHref({ category: cat.slug, q, status: activeStatus, sort: activeSort })}
+              className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                activeCategory === cat.slug
+                  ? "bg-zinc-900 text-white"
+                  : `${cat.badgeClassName} hover:opacity-80`
+              }`}
+            >
+              {cat.label}
+            </Link>
+          ))}
+        </div>
       </div>
 
-      {/* Post list */}
+      {/* ステータス・並び順 */}
+      <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-xs font-medium text-zinc-500">ステータス</span>
+          <div className="flex gap-1">
+            {STATUS_OPTIONS.map(({ value, label }) => (
+              <Link
+                key={label}
+                href={buildHref({ category: activeCategory, q, status: value, sort: activeSort })}
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition ${
+                  activeStatus === value
+                    ? "bg-zinc-900 text-white"
+                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                }`}
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-xs font-medium text-zinc-500">並び順</span>
+          <div className="flex gap-1">
+            {SORT_OPTIONS.map(({ value, label }) => (
+              <Link
+                key={label}
+                href={buildHref({ category: activeCategory, q, status: activeStatus, sort: value })}
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition ${
+                  activeSort === value
+                    ? "bg-zinc-900 text-white"
+                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                }`}
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 投稿一覧 */}
       {!ready ? (
         <ul className="flex flex-col gap-4">
           {[1, 2, 3].map((i) => (
             <li key={i} className="h-20 animate-pulse rounded-2xl bg-zinc-100" />
           ))}
         </ul>
-      ) : filtered.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-8 py-16 text-center">
-          {q ? (
+          {hasFilter ? (
             <>
-              <p className="text-zinc-600">
-                「{q}」に一致する投稿はありません。
-              </p>
+              <p className="text-zinc-600">該当する相談はありません。</p>
               <Link
-                href={buildHref({ category: activeCategory })}
+                href="/posts"
                 className="mt-4 inline-block text-sm font-medium text-zinc-900 underline underline-offset-4"
               >
-                検索をクリア
-              </Link>
-            </>
-          ) : activeCategory ? (
-            <>
-              <p className="text-zinc-600">
-                このカテゴリの投稿はまだありません。
-              </p>
-              <Link
-                href="/new"
-                className="mt-4 inline-block text-sm font-medium text-zinc-900 underline underline-offset-4"
-              >
-                最初の投稿を書く
+                絞り込みをクリア
               </Link>
             </>
           ) : (
             <>
-              <p className="text-zinc-600">No posts yet.</p>
+              <p className="text-zinc-600">まだ投稿がありません。</p>
               <Link
                 href="/new"
                 className="mt-4 inline-block text-sm font-medium text-zinc-900 underline underline-offset-4"
               >
-                Write the first post
+                最初の相談を投稿する
               </Link>
             </>
           )}
         </div>
       ) : (
         <ul className="flex flex-col gap-3">
-          {filtered.map((post) => (
+          {sorted.map((post) => (
             <li
               key={post.id}
               className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition hover:shadow-md sm:px-5"
@@ -203,18 +260,17 @@ export default function PostsPage() {
             Community
           </p>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-900">
-            Recent posts
+            みんなの相談
           </h1>
           <p className="mt-2 max-w-md text-[15px] text-zinc-500">
-            Browse discussions on AddBuy+C. Create a thread to share ideas,
-            questions, or updates.
+            カテゴリやキーワードで気になる相談を探せます。
           </p>
         </div>
         <Link
           href="/new"
           className="inline-flex shrink-0 items-center justify-center rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
         >
-          Create new post
+          相談を投稿する
         </Link>
       </div>
 
