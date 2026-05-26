@@ -17,7 +17,7 @@ import { useAuth } from "@/context/AuthProvider";
 type PostsContextValue = {
   posts: Post[];
   ready: boolean;
-  addPost: (input: Omit<Post, "id" | "createdAt" | "likes" | "status">) => Promise<void>;
+  addPost: (input: Omit<Post, "id" | "createdAt" | "likes" | "status" | "hasBestAnswer">) => Promise<void>;
   likePost: (id: string, isLiked?: boolean) => Promise<number | null>;
   refetchPosts: () => Promise<void>;
 };
@@ -58,6 +58,7 @@ function mapRowToPost(row: PostRow): Post {
     category: toCategory(row.category),
     targetUrl: row.target_url,
     status: row.status === "hidden" ? "hidden" : "published",
+    hasBestAnswer: false,
   };
 }
 
@@ -68,17 +69,30 @@ export function PostsProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   const fetchPosts = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("posts")
-      .select("id, title, description, image_url, likes, created_at, category, target_url, status")
-      .eq("status", "published")
-      .order("created_at", { ascending: false });
-    if (error) {
-      console.error("Failed to load posts:", error.message);
+    const [postsResult, bestAnswerResult] = await Promise.all([
+      supabase
+        .from("posts")
+        .select("id, title, description, image_url, likes, created_at, category, target_url, status")
+        .eq("status", "published")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("replies")
+        .select("post_id")
+        .eq("is_best_answer", true)
+        .eq("status", "published"),
+    ]);
+    if (postsResult.error) {
+      console.error("Failed to load posts:", postsResult.error.message);
       setPosts([]);
       return;
     }
-    const mapped = (data ?? []).map((row) => mapRowToPost(row as PostRow));
+    const bestAnswerPostIds = new Set(
+      (bestAnswerResult.data ?? []).map((r) => String((r as { post_id: number }).post_id)),
+    );
+    const mapped = (postsResult.data ?? []).map((row) => ({
+      ...mapRowToPost(row as PostRow),
+      hasBestAnswer: bestAnswerPostIds.has(String((row as PostRow).id)),
+    }));
     setPosts(mapped);
   }, []);
 
@@ -94,7 +108,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
   }, [fetchPosts]);
 
   const addPost = useCallback(
-    async (input: Omit<Post, "id" | "createdAt" | "likes" | "status">) => {
+    async (input: Omit<Post, "id" | "createdAt" | "likes" | "status" | "hasBestAnswer">) => {
       const { data, error } = await supabase
         .from("posts")
         .insert({

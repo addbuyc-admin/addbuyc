@@ -10,4 +10,5 @@ export type Post = {
   category: CategorySlug;
   targetUrl: string | null;
   status: "published" | "hidden";
+  hasBestAnswer: boolean;
 };

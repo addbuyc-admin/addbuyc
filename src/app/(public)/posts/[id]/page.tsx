@@ -16,6 +16,7 @@ import { ReportButton } from "@/components/ReportButton";
 import { getAdvisorRank, type AdvisorRankInfo } from "@/lib/advisor-rank";
 import { AdvisorRankBadge } from "@/components/AdvisorRankBadge";
 import { AvatarIcon } from "@/components/AvatarIcon";
+import { PostStatusBadge } from "@/components/PostStatusBadge";
 
 const VALID_CATEGORIES: Set<string> = new Set(CATEGORIES.map((c) => c.slug));
 
@@ -84,6 +85,7 @@ function mapRowToPost(row: PostRow): Post {
     category: toCategory(row.category),
     targetUrl: row.target_url,
     status: row.status === "hidden" ? "hidden" : "published",
+    hasBestAnswer: false,
   };
 }
 
@@ -182,6 +184,8 @@ export default function PostDetailPage() {
   const [editReplyBody, setEditReplyBody] = useState("");
   const [editReplyError, setEditReplyError] = useState<string | null>(null);
   const [savingReplyId, setSavingReplyId] = useState<string | null>(null);
+  // ベストアンサー
+  const [settingBestAnswer, setSettingBestAnswer] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -681,6 +685,48 @@ export default function PostDetailPage() {
     setSavingReplyId(null);
   }
 
+  async function handleSetBestAnswer(replyId: string) {
+    if (!post || !user?.id || settingBestAnswer) return;
+    setSettingBestAnswer(true);
+    const { error } = await supabase.rpc("set_best_answer", {
+      p_reply_id: toDbId(replyId),
+      p_post_id: toDbId(String(post.id)),
+    });
+    if (error) {
+      console.error("Failed to set best answer:", error.message);
+      alert("ベストアンサーの設定に失敗しました。");
+      setSettingBestAnswer(false);
+      return;
+    }
+    setReplies((prev) => {
+      const updated = prev.map((r) => ({ ...r, isBestAnswer: r.id === replyId }));
+      return updated.sort((a, b) => {
+        if (a.isBestAnswer && !b.isBestAnswer) return -1;
+        if (!a.isBestAnswer && b.isBestAnswer) return 1;
+        return 0;
+      });
+    });
+    await refetchPosts();
+    setSettingBestAnswer(false);
+  }
+
+  async function handleUnsetBestAnswer() {
+    if (!post || !user?.id || settingBestAnswer) return;
+    setSettingBestAnswer(true);
+    const { error } = await supabase.rpc("unset_best_answer", {
+      p_post_id: toDbId(String(post.id)),
+    });
+    if (error) {
+      console.error("Failed to unset best answer:", error.message);
+      alert("ベストアンサーの解除に失敗しました。");
+      setSettingBestAnswer(false);
+      return;
+    }
+    setReplies((prev) => prev.map((r) => ({ ...r, isBestAnswer: false })));
+    await refetchPosts();
+    setSettingBestAnswer(false);
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <Link
@@ -777,6 +823,9 @@ export default function PostDetailPage() {
                 <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
                   {post.title}
                 </h1>
+                <div className="mt-2">
+                  <PostStatusBadge hasBestAnswer={replies.some((r) => r.isBestAnswer)} />
+                </div>
                 <div className="mt-3 border-b border-zinc-100 pb-4">
                   <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
                     <div className="flex items-center gap-2">
@@ -1078,27 +1127,48 @@ export default function PostDetailPage() {
                             })()}
                           </div>
                           <div className="mt-2 flex items-center justify-between">
-                            {user?.id && reply.userId && user.id === reply.userId ? (
-                              <div className="flex items-center gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteReply(reply.id)}
-                                  disabled={deletingReplyId === reply.id}
-                                  className="text-sm text-red-500 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  {deletingReplyId === reply.id ? "削除中…" : "削除"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditReply(reply.id)}
-                                  className="text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline"
-                                >
-                                  編集
-                                </button>
-                              </div>
-                            ) : (
-                              <span />
-                            )}
+                            <div className="flex items-center gap-3">
+                              {user?.id && reply.userId && user.id === reply.userId && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteReply(reply.id)}
+                                    disabled={deletingReplyId === reply.id}
+                                    className="text-sm text-red-500 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {deletingReplyId === reply.id ? "削除中…" : "削除"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditReply(reply.id)}
+                                    className="text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline"
+                                  >
+                                    編集
+                                  </button>
+                                </>
+                              )}
+                              {user?.id && postUserId && user.id === postUserId && !(reply.userId && user.id === reply.userId) && (
+                                reply.isBestAnswer ? (
+                                  <button
+                                    type="button"
+                                    onClick={handleUnsetBestAnswer}
+                                    disabled={settingBestAnswer}
+                                    className="text-sm text-amber-600 transition hover:text-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {settingBestAnswer ? "処理中…" : "ベストアンサーを解除"}
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetBestAnswer(reply.id)}
+                                    disabled={settingBestAnswer}
+                                    className="text-sm text-emerald-600 transition hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {settingBestAnswer ? "処理中…" : "ベストアンサーに選ぶ"}
+                                  </button>
+                                )
+                              )}
+                            </div>
                             {!(user?.id && reply.userId && user.id === reply.userId) && (
                               <ReportButton targetType="reply" targetId={reply.id} />
                             )}

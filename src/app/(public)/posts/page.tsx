@@ -6,6 +6,7 @@ import { formatDateTime } from "@/lib/format";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePosts } from "@/context/PostsProvider";
 import { CategoryBadge } from "@/components/CategoryBadge";
+import { PostStatusBadge } from "@/components/PostStatusBadge";
 import { CATEGORIES } from "@/lib/categories";
 import type { CategorySlug } from "@/lib/categories";
 
@@ -177,6 +178,7 @@ function PostListWithFilter() {
                   </Link>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
                     <CategoryBadge category={post.category} />
+                    <PostStatusBadge hasBestAnswer={post.hasBestAnswer} />
                     <time dateTime={post.createdAt}>
                       {formatDateTime(post.createdAt)}
                     </time>

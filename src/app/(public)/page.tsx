@@ -7,6 +7,7 @@ import { useState } from "react";
 import { usePosts } from "@/context/PostsProvider";
 import { CATEGORIES } from "@/lib/categories";
 import { CategoryBadge } from "@/components/CategoryBadge";
+import { PostStatusBadge } from "@/components/PostStatusBadge";
 
 const DISPLAY_CATEGORIES = CATEGORIES;
 
@@ -163,6 +164,7 @@ export default function HomePage() {
                       </Link>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
                         <CategoryBadge category={post.category} />
+                        <PostStatusBadge hasBestAnswer={post.hasBestAnswer} />
                         <time dateTime={post.createdAt}>
                           {formatDateTime(post.createdAt)}
                         </time>
