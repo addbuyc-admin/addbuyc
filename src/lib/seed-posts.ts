@@ -12,6 +12,7 @@ export const SEED_POSTS: Post[] = [
     category: "other",
     targetUrl: null,
     status: "published",
+    hasBestAnswer: false,
   },
   {
     id: "seed-2",
@@ -24,6 +25,7 @@ export const SEED_POSTS: Post[] = [
     category: "other",
     targetUrl: null,
     status: "published",
+    hasBestAnswer: false,
   },
   {
     id: "seed-3",
@@ -36,5 +38,6 @@ export const SEED_POSTS: Post[] = [
     category: "other",
     targetUrl: null,
     status: "published",
+    hasBestAnswer: false,
   },
 ];

@@ -8,6 +8,7 @@ import { formatDateTime } from "@/lib/format";
 import { getAdvisorRank } from "@/lib/advisor-rank";
 import { AdvisorRankBadge } from "@/components/AdvisorRankBadge";
 import { AvatarIcon } from "@/components/AvatarIcon";
+import { PostStatusBadge } from "@/components/PostStatusBadge";
 
 const REPLY_EXCERPT_LEN = 100;
 
@@ -43,6 +44,7 @@ type PublicPost = {
   id: number;
   title: string;
   created_at: string;
+  hasBestAnswer: boolean;
 };
 
 export default function UserProfilePage() {
@@ -103,7 +105,26 @@ export default function UserProfilePage() {
         .slice(0, 10);
       setReplies(publishedReplies);
 
-      setPosts((postsRes.data ?? []) as PublicPost[]);
+      const postIdsArr = ((postsRes.data ?? []) as { id: number }[]).map((p) => p.id);
+      let bestAnswerPostIds = new Set<number>();
+      if (postIdsArr.length > 0) {
+        const { data: baData } = await supabase
+          .from("replies")
+          .select("post_id")
+          .in("post_id", postIdsArr)
+          .eq("is_best_answer", true)
+          .eq("status", "published");
+        bestAnswerPostIds = new Set(
+          ((baData ?? []) as { post_id: number }[]).map((r) => r.post_id),
+        );
+      }
+
+      setPosts(
+        ((postsRes.data ?? []) as { id: number; title: string; created_at: string }[]).map((p) => ({
+          ...p,
+          hasBestAnswer: bestAnswerPostIds.has(p.id),
+        })),
+      );
       setLoading(false);
     })();
   }, [username]);
@@ -212,12 +233,15 @@ export default function UserProfilePage() {
                 key={post.id}
                 className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
               >
-                <Link
-                  href={`/posts/${post.id}`}
-                  className="text-sm font-medium text-zinc-800 underline-offset-2 hover:text-zinc-600 hover:underline"
-                >
-                  {post.title}
-                </Link>
+                <div className="flex items-center gap-2">
+                  <PostStatusBadge hasBestAnswer={post.hasBestAnswer} />
+                  <Link
+                    href={`/posts/${post.id}`}
+                    className="text-sm font-medium text-zinc-800 underline-offset-2 hover:text-zinc-600 hover:underline"
+                  >
+                    {post.title}
+                  </Link>
+                </div>
                 <time
                   className="mt-1 block text-xs text-zinc-400"
                   dateTime={post.created_at}
