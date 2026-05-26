@@ -170,6 +170,14 @@ function buildFilterHref(
   return qs ? `/dashboard?${qs}` : "/dashboard";
 }
 
+function buildTabHref(tab: string, current: Record<string, string>): string {
+  const p = new URLSearchParams(current);
+  if (tab === "all") p.delete("tab");
+  else p.set("tab", tab);
+  const qs = p.toString();
+  return qs ? `/dashboard?${qs}` : "/dashboard";
+}
+
 function FilterTabs({
   options,
   paramKey,
@@ -238,8 +246,19 @@ export default async function DashboardPage({ searchParams }: Props) {
     typeof resolvedParams.reportStatus === "string"
       ? resolvedParams.reportStatus
       : "all";
+  const rawTab = typeof resolvedParams.tab === "string" ? resolvedParams.tab : null;
+  const activeTab: "posts" | "replies" | "reports" | "all" =
+    ["posts", "replies", "reports"].includes(rawTab ?? "")
+      ? (rawTab as "posts" | "replies" | "reports")
+      : "all";
+
+  const showPosts    = activeTab === "all" || activeTab === "posts";
+  const showReplies  = activeTab === "all" || activeTab === "replies";
+  const showReports  = activeTab === "all" || activeTab === "reports";
+  const showUserStats = activeTab === "all";
 
   const currentParams: Record<string, string> = {};
+  if (activeTab !== "all") currentParams.tab = activeTab;
   if (postFilter !== "all") currentParams.postStatus = postFilter;
   if (replyFilter !== "all") currentParams.replyStatus = replyFilter;
   if (reportFilter !== "all") currentParams.reportStatus = reportFilter;
@@ -314,6 +333,36 @@ export default async function DashboardPage({ searchParams }: Props) {
         </form>
       </div>
 
+      {/* メインタブ */}
+      <div className="mb-8 flex flex-wrap gap-2">
+        {(
+          [
+            { value: "all",     label: "すべて" },
+            { value: "posts",   label: "投稿" },
+            { value: "replies", label: "返信" },
+            { value: "reports", label: "通報" },
+          ] as const
+        ).map(({ value, label }) => (
+          <Link
+            key={value}
+            href={buildTabHref(value, currentParams)}
+            scroll={false}
+            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
+              activeTab === value
+                ? "bg-zinc-900 text-white"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+            }`}
+          >
+            {label}
+            {value === "reports" && openReports > 0 && (
+              <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                {openReports}
+              </span>
+            )}
+          </Link>
+        ))}
+      </div>
+
       {/* サマリーカード */}
       <div className="mb-10 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
@@ -346,7 +395,7 @@ export default async function DashboardPage({ searchParams }: Props) {
       </div>
 
       {/* Reports */}
-      <section className="mb-12">
+      {showReports && <section className="mb-12">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-zinc-900">
             通報{" "}
@@ -530,10 +579,10 @@ export default async function DashboardPage({ searchParams }: Props) {
             </p>
           )}
         </div>
-      </section>
+      </section>}
 
       {/* Posts */}
-      <section className="mb-12">
+      {showPosts && <section className="mb-12">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-zinc-900">
             投稿{" "}
@@ -629,10 +678,10 @@ export default async function DashboardPage({ searchParams }: Props) {
             </p>
           )}
         </div>
-      </section>
+      </section>}
 
       {/* Replies */}
-      <section className="mb-12">
+      {showReplies && <section className="mb-12">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-zinc-900">
             返信{" "}
@@ -743,10 +792,10 @@ export default async function DashboardPage({ searchParams }: Props) {
             </p>
           )}
         </div>
-      </section>
+      </section>}
 
       {/* ユーザー実績 */}
-      <section>
+      {showUserStats && <section>
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-zinc-900">
             ユーザー実績{" "}
@@ -815,7 +864,7 @@ export default async function DashboardPage({ searchParams }: Props) {
             </p>
           )}
         </div>
-      </section>
+      </section>}
     </div>
   );
 }
