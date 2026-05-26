@@ -266,6 +266,10 @@ export default async function DashboardPage({ searchParams }: Props) {
     replies.map((r) => [r.id, r.post_id]),
   );
 
+  // reports 行から対象コンテンツ・ステータスを参照するためのマップ
+  const postMap = new Map<number, PostRow>(posts.map((p) => [p.id, p]));
+  const replyMap = new Map<number, ReplyRow>(replies.map((r) => [r.id, r]));
+
   // サマリー集計（フィルター前の全データ）
   const openReports = reports.filter((r) => r.status === "open").length;
   const hiddenPosts = posts.filter((p) => p.status === "hidden").length;
@@ -282,6 +286,11 @@ export default async function DashboardPage({ searchParams }: Props) {
     reportFilter === "all"
       ? reports
       : reports.filter((r) => r.status === reportFilter);
+  const sortedReports = [...filteredReports].sort((a, b) => {
+    if (a.status === "open" && b.status !== "open") return -1;
+    if (a.status !== "open" && b.status === "open") return 1;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -342,7 +351,7 @@ export default async function DashboardPage({ searchParams }: Props) {
           <h2 className="text-lg font-semibold text-zinc-900">
             通報{" "}
             <span className="ml-1 text-sm font-normal text-zinc-500">
-              ({filteredReports.length}/{reports.length}件)
+              ({sortedReports.length}/{reports.length}件)
             </span>
           </h2>
           <FilterTabs
@@ -358,22 +367,34 @@ export default async function DashboardPage({ searchParams }: Props) {
               <tr className="border-b border-zinc-100 bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
                 <th className="w-12 px-4 py-3">ID</th>
                 <th className="w-14 px-4 py-3">対象</th>
-                <th className="w-16 px-4 py-3">対象ID</th>
+                <th className="min-w-[180px] px-4 py-3">対象内容</th>
+                <th className="w-36 px-4 py-3">対象状態</th>
                 <th className="w-28 px-4 py-3">理由</th>
-                <th className="min-w-[120px] px-4 py-3">補足</th>
-                <th className="w-20 px-4 py-3">状態</th>
+                <th className="min-w-[100px] px-4 py-3">補足</th>
+                <th className="w-20 px-4 py-3">通報状態</th>
                 <th className="w-40 px-4 py-3">通報日時</th>
-                <th className="w-40 px-4 py-3">対応日時</th>
-                <th className="w-36 px-4 py-3">操作</th>
+                <th className="w-44 px-4 py-3">操作</th>
               </tr>
             </thead>
             <tbody>
-              {filteredReports.map((report) => {
+              {sortedReports.map((report) => {
                 const isOpen = report.status === "open";
                 const postId =
                   report.target_type === "post"
                     ? report.target_id
                     : (replyPostMap.get(report.target_id) ?? null);
+                const targetPost =
+                  report.target_type === "post"
+                    ? (postMap.get(report.target_id) ?? null)
+                    : null;
+                const targetReply =
+                  report.target_type === "reply"
+                    ? (replyMap.get(report.target_id) ?? null)
+                    : null;
+                const targetStatus: "published" | "hidden" | null =
+                  report.target_type === "post"
+                    ? (targetPost ? (targetPost.status === "hidden" ? "hidden" : "published") : null)
+                    : (targetReply ? (targetReply.status === "hidden" ? "hidden" : "published") : null);
                 return (
                   <Fragment key={report.id}>
                     {/* データ行 */}
@@ -398,21 +419,59 @@ export default async function DashboardPage({ searchParams }: Props) {
                           {report.target_type === "post" ? "投稿" : "返信"}
                         </span>
                       </td>
+                      {/* 対象内容 */}
                       <td className="px-4 py-3">
-                        {postId !== null ? (
-                          <Link
-                            href={`/posts/${postId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 underline-offset-2 hover:underline"
-                          >
-                            {report.target_id}
-                          </Link>
+                        {report.target_type === "post" ? (
+                          postId !== null ? (
+                            <Link
+                              href={`/posts/${postId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="line-clamp-2 text-xs font-medium text-zinc-700 underline-offset-2 hover:text-zinc-900 hover:underline"
+                            >
+                              {targetPost?.title ?? `投稿 #${report.target_id}`}
+                            </Link>
+                          ) : (
+                            <span className="text-xs text-zinc-400">
+                              投稿 #{report.target_id}
+                            </span>
+                          )
                         ) : (
-                          <span className="text-zinc-400">
-                            {report.target_id}
-                          </span>
+                          <div className="space-y-1">
+                            <p className="line-clamp-2 text-xs text-zinc-600">
+                              {targetReply
+                                ? targetReply.description.slice(0, 80)
+                                : `返信 #${report.target_id}`}
+                            </p>
+                            {postId !== null && (
+                              <Link
+                                href={`/posts/${postId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-600 underline-offset-2 hover:underline"
+                              >
+                                投稿を見る →
+                              </Link>
+                            )}
+                          </div>
                         )}
+                      </td>
+                      {/* 対象状態 */}
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-1.5">
+                          {targetStatus !== null ? (
+                            <>
+                              <StatusBadge status={targetStatus} />
+                              <ToggleStatusButton
+                                id={report.target_id}
+                                type={report.target_type as "post" | "reply"}
+                                currentStatus={targetStatus}
+                              />
+                            </>
+                          ) : (
+                            <span className="text-xs text-zinc-300">—</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-zinc-700">
                         {REASON_LABELS[report.reason] ?? report.reason}
@@ -431,13 +490,6 @@ export default async function DashboardPage({ searchParams }: Props) {
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-xs text-zinc-500">
                         {formatDateTime(report.created_at)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-xs text-zinc-500">
-                        {report.handled_at ? (
-                          formatDateTime(report.handled_at)
-                        ) : (
-                          <span className="text-zinc-300">—</span>
-                        )}
                       </td>
                       <td className="px-4 py-3">
                         <ReportStatusButton
@@ -472,9 +524,9 @@ export default async function DashboardPage({ searchParams }: Props) {
               })}
             </tbody>
           </table>
-          {filteredReports.length === 0 && (
+          {sortedReports.length === 0 && (
             <p className="px-4 py-10 text-center text-sm text-zinc-400">
-              該当する通報なし
+              {reportFilter === "open" ? "未対応の通報はありません" : "該当する通報なし"}
             </p>
           )}
         </div>
