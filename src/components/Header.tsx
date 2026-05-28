@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase/browser";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export function Header() {
   const { user, loading, displayName } = useAuth();
@@ -34,6 +35,7 @@ export function Header() {
           {!loading &&
             (user ? (
               <>
+                <NotificationBell userId={user.id} />
                 <Link
                   href="/mypage"
                   className="max-w-[100px] truncate text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-900 hover:underline"
