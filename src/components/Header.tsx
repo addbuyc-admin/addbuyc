@@ -28,9 +28,24 @@ export function Header() {
         <nav className="flex items-center gap-3">
           <Link
             href="/"
-            className="text-sm font-medium text-zinc-600 transition hover:text-zinc-900"
+            aria-label="Home"
+            className="text-zinc-600 transition hover:text-zinc-900"
           >
-            Home
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
           </Link>
           {!loading &&
             (user ? (
