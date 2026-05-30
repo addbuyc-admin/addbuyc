@@ -218,10 +218,10 @@ function PostListWithFilter() {
               className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition hover:shadow-md sm:px-5"
             >
               <div className="flex items-center gap-3">
-                {post.imageUrl && (
+                {(post.imageUrls?.[0] ?? post.imageUrl) && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={post.imageUrl}
+                    src={(post.imageUrls?.[0] ?? post.imageUrl)!}
                     alt=""
                     className="h-14 w-14 shrink-0 rounded-xl object-cover"
                   />
