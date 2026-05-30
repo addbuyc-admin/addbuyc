@@ -16,6 +16,7 @@ export type Post = {
   title: string;
   description: string;
   imageUrl: string | null;
+  imageUrls: string[];
   likes: number;
   createdAt: string;
   category: CategorySlug;

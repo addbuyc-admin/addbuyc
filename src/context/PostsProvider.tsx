@@ -29,6 +29,7 @@ type PostRow = {
   title: string;
   description: string;
   image_url: string | null;
+  image_urls: string[] | null;
   likes: number | null;
   created_at: string;
   category: string | null;
@@ -53,6 +54,7 @@ function mapRowToPost(row: PostRow): Post {
     title: row.title,
     description: row.description,
     imageUrl: row.image_url,
+    imageUrls: Array.isArray(row.image_urls) ? row.image_urls : [],
     likes: typeof row.likes === "number" ? row.likes : 0,
     createdAt: row.created_at,
     category: toCategory(row.category),
@@ -72,7 +74,7 @@ export function PostsProvider({ children }: { children: ReactNode }) {
     const [postsResult, bestAnswerResult] = await Promise.all([
       supabase
         .from("posts")
-        .select("id, title, description, image_url, likes, created_at, category, target_url, status")
+        .select("id, title, description, image_url, image_urls, likes, created_at, category, target_url, status")
         .eq("status", "published")
         .order("created_at", { ascending: false }),
       supabase
@@ -115,12 +117,13 @@ export function PostsProvider({ children }: { children: ReactNode }) {
           title: input.title,
           description: input.description,
           image_url: input.imageUrl,
+          image_urls: input.imageUrls,
           likes: 0,
           category: input.category,
           target_url: input.targetUrl,
           user_id: userId,
         })
-        .select("id, title, description, image_url, likes, created_at, category, target_url, status")
+        .select("id, title, description, image_url, image_urls, likes, created_at, category, target_url, status")
         .single();
       if (error) {
         console.error("Failed to create post:", error.message);
