@@ -44,33 +44,60 @@ export function compressAvatar(blob: Blob): Promise<Blob> {
 }
 
 export function compressImage(file: File): Promise<Blob> {
-  const MAX_DIM = 1600;
-  const QUALITY = 0.82;
   const MAX_SIZE = 2 * 1024 * 1024;
+  const DIM_STEPS = [1920, 1600, 1280, 1024];
+  const QUALITY_STEPS = [0.85, 0.75, 0.65, 0.55, 0.45];
+
   return new Promise((resolve, reject) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
+
     img.onload = () => {
       URL.revokeObjectURL(objectUrl);
-      const ratio = Math.min(MAX_DIM / img.width, MAX_DIM / img.height, 1);
-      const w = Math.round(img.width * ratio);
-      const h = Math.round(img.height * ratio);
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) { reject(new Error("canvas unavailable")); return; }
-      ctx.drawImage(img, 0, 0, w, h);
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) { reject(new Error("compression failed")); return; }
-          if (blob.size > MAX_SIZE) { reject(new Error("IMAGE_TOO_LARGE")); return; }
-          resolve(blob);
-        },
-        "image/webp",
-        QUALITY,
-      );
+
+      function tryDim(dimIdx: number) {
+        if (dimIdx >= DIM_STEPS.length) {
+          reject(new Error("IMAGE_TOO_LARGE"));
+          return;
+        }
+
+        const maxDim = DIM_STEPS[dimIdx];
+        const ratio = Math.min(maxDim / img.width, maxDim / img.height, 1);
+        const w = Math.round(img.width * ratio);
+        const h = Math.round(img.height * ratio);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("canvas unavailable")); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+
+        function tryQuality(qIdx: number) {
+          if (qIdx >= QUALITY_STEPS.length) {
+            tryDim(dimIdx + 1);
+            return;
+          }
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) { reject(new Error("compression failed")); return; }
+              if (blob.size <= MAX_SIZE) {
+                resolve(blob);
+              } else {
+                tryQuality(qIdx + 1);
+              }
+            },
+            "image/webp",
+            QUALITY_STEPS[qIdx],
+          );
+        }
+
+        tryQuality(0);
+      }
+
+      tryDim(0);
     };
+
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
       reject(new Error("load failed"));

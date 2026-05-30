@@ -164,7 +164,7 @@ export function NotificationBell({ userId }: { userId: string }) {
 
       {/* ドロップダウン */}
       {open && (
-        <div className="absolute right-0 top-10 z-50 w-80 rounded-2xl border border-zinc-200 bg-white shadow-lg">
+        <div className="fixed left-4 right-4 top-16 z-50 rounded-2xl border border-zinc-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-10 sm:w-80">
           {/* ヘッダー */}
           <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
@@ -201,7 +201,7 @@ export function NotificationBell({ userId }: { userId: string }) {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p
-                          className={`text-sm leading-snug ${
+                          className={`break-words text-sm leading-snug ${
                             n.read_at === null
                               ? "font-medium text-zinc-900"
                               : "text-zinc-500"
