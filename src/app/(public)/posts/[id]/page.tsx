@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compress-image";
 import { LinkedText } from "@/components/LinkedText";
+import { ImageGrid } from "@/components/ImageGrid";
 import type { Post } from "@/lib/types";
 import { CATEGORIES, type CategorySlug } from "@/lib/categories";
 import { CategoryBadge } from "@/components/CategoryBadge";
@@ -19,10 +20,29 @@ import { AvatarIcon } from "@/components/AvatarIcon";
 import { PostStatusBadge } from "@/components/PostStatusBadge";
 
 const VALID_CATEGORIES: Set<string> = new Set(CATEGORIES.map((c) => c.slug));
+const MAX_REPLY_IMAGES = 5;
 
 function toCategory(value: string | null): CategorySlug {
   if (value && VALID_CATEGORIES.has(value)) return value as CategorySlug;
   return "other";
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("read failed"));
+    };
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function resolveImageUrls(imageUrls: string[], imageUrl: string | null): string[] {
+  if (imageUrls.length > 0) return imageUrls;
+  if (imageUrl) return [imageUrl];
+  return [];
 }
 
 type UserStat = {
@@ -67,6 +87,7 @@ type PostRow = {
   title: string;
   description: string;
   image_url: string | null;
+  image_urls: string[] | null;
   likes: number | null;
   created_at: string;
   category: string | null;
@@ -80,6 +101,7 @@ function mapRowToPost(row: PostRow): Post {
     title: row.title,
     description: row.description,
     imageUrl: row.image_url,
+    imageUrls: Array.isArray(row.image_urls) ? row.image_urls : [],
     likes: typeof row.likes === "number" ? row.likes : 0,
     createdAt: row.created_at,
     category: toCategory(row.category),
@@ -94,6 +116,7 @@ type Reply = {
   postId: string;
   description: string;
   imageUrl: string | null;
+  imageUrls: string[];
   isBestAnswer: boolean;
   likes: number;
   createdAt: string;
@@ -105,6 +128,7 @@ type ReplyRow = {
   post_id: number | string;
   description: string;
   image_url: string | null;
+  image_urls: string[] | null;
   is_best_answer: boolean;
   likes: number;
   created_at: string;
@@ -117,6 +141,7 @@ function mapRowToReply(row: ReplyRow): Reply {
     postId: String(row.post_id),
     description: row.description,
     imageUrl: row.image_url ?? null,
+    imageUrls: Array.isArray(row.image_urls) ? row.image_urls : [],
     isBestAnswer: row.is_best_answer ?? false,
     likes: row.likes,
     createdAt: row.created_at,
@@ -158,9 +183,8 @@ export default function PostDetailPage() {
   const [postUserId, setPostUserId] = useState<string | null>(null);
   const [replies, setReplies] = useState<Reply[]>([]);
   const [replyBody, setReplyBody] = useState("");
-  const [replyImageFile, setReplyImageFile] = useState<File | null>(null);
-  const [replyImagePreview, setReplyImagePreview] = useState<string | null>(null);
-  const [replyImageFileName, setReplyImageFileName] = useState<string | null>(null);
+  const [replyImageFiles, setReplyImageFiles] = useState<File[]>([]);
+  const [replyImagePreviews, setReplyImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [replyError, setReplyError] = useState<string | null>(null);
@@ -224,7 +248,7 @@ export default function PostDetailPage() {
     void (async () => {
       const { data: postData, error: postError } = await supabase
         .from("posts")
-        .select("id, title, description, image_url, likes, created_at, category, target_url, status, user_id")
+        .select("id, title, description, image_url, image_urls, likes, created_at, category, target_url, status, user_id")
         .eq("id", toDbId(postId))
         .single();
 
@@ -249,7 +273,7 @@ export default function PostDetailPage() {
 
       const { data: repliesData, error: repliesError } = await supabase
         .from("replies")
-        .select("id, post_id, description, image_url, is_best_answer, likes, created_at, user_id")
+        .select("id, post_id, description, image_url, image_urls, is_best_answer, likes, created_at, user_id")
         .eq("post_id", toDbId(postId))
         .eq("status", "published")
         .order("created_at", { ascending: true });
@@ -258,7 +282,6 @@ export default function PostDetailPage() {
         setReplyError("Failed to load replies.");
       } else {
         const mapped = (repliesData ?? []).map((row) => mapRowToReply(row as ReplyRow));
-        // ベストアンサーを先頭に、それ以外は投稿日時昇順を維持
         mapped.sort((a, b) => {
           if (a.isBestAnswer && !b.isBestAnswer) return -1;
           if (!a.isBestAnswer && b.isBestAnswer) return 1;
@@ -267,7 +290,6 @@ export default function PostDetailPage() {
         setReplies(mapped);
       }
 
-      // 投稿・返信に紐づく user_id を収集
       const userIds = [
         rawPost.user_id,
         ...((repliesData ?? []).map((r) => (r as ReplyRow & { user_id?: string | null }).user_id ?? null)),
@@ -275,8 +297,6 @@ export default function PostDetailPage() {
       const uniqueIds = [...new Set(userIds)];
 
       if (uniqueIds.length > 0) {
-        // display_name は profiles から直接取得（信頼性優先）
-        // ランク用の集計値は user_stats から取得
         const [profilesResult, statsResult] = await Promise.all([
           supabase
             .from("profiles")
@@ -327,7 +347,6 @@ export default function PostDetailPage() {
     if (user?.id && postUserId && user.id === postUserId) return;
 
     if (user?.id) {
-      // ログインユーザー: Like/Unlike トグル
       const isAlreadyLiked = likedPosts.has(postId);
       const persistedLikes = await likePost(postId, isAlreadyLiked);
       if (persistedLikes === null) {
@@ -342,7 +361,6 @@ export default function PostDetailPage() {
         return next;
       });
     } else {
-      // ゲスト: Like のみ（解除不可）
       if (likedPosts.has(postId)) return;
       const persistedLikes = await likePost(postId);
       if (persistedLikes === null) {
@@ -365,7 +383,6 @@ export default function PostDetailPage() {
     if (user?.id && target.userId && user.id === target.userId) return;
 
     if (user?.id) {
-      // ログインユーザー: Like/Unlike トグル
       const isAlreadyLiked = likedReplies.has(replyId);
       const optimisticLikes = isAlreadyLiked ? target.likes - 1 : target.likes + 1;
       setReplies((prev) =>
@@ -395,7 +412,6 @@ export default function PostDetailPage() {
         return;
       }
 
-      // trigger が replies.likes を更新済み → 実数を取得
       const { data: refreshed } = await supabase
         .from("replies")
         .select("likes")
@@ -416,7 +432,6 @@ export default function PostDetailPage() {
         return next;
       });
     } else {
-      // ゲスト: Like のみ（解除不可）
       if (likedReplies.has(replyId)) return;
       const nextLikes = target.likes + 1;
       setReplies((prev) =>
@@ -442,36 +457,40 @@ export default function PostDetailPage() {
     }
   }
 
-  function onReplyFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  async function onReplyFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
     setReplyError(null);
-    if (!file) {
-      setReplyImageFile(null);
-      setReplyImagePreview(null);
-      setReplyImageFileName(null);
-      return;
-    }
-    if (!file.type.startsWith("image/")) {
+    if (files.length === 0) return;
+
+    if (files.some((f) => !f.type.startsWith("image/"))) {
       setReplyError("画像ファイルを選択してください。");
-      setReplyImageFile(null);
-      setReplyImagePreview(null);
-      setReplyImageFileName(null);
       return;
     }
-    setReplyImageFile(file);
-    setReplyImageFileName(file.name);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result;
-      if (typeof result === "string") setReplyImagePreview(result);
-    };
-    reader.readAsDataURL(file);
+
+    const remaining = MAX_REPLY_IMAGES - replyImageFiles.length;
+    if (remaining <= 0) {
+      setReplyError(`画像は最大${MAX_REPLY_IMAGES}枚まで追加できます。`);
+      return;
+    }
+
+    const toAdd = files.slice(0, remaining);
+    if (files.length > remaining) {
+      setReplyError(`画像は最大${MAX_REPLY_IMAGES}枚まで追加できます。最初の${remaining}枚のみ追加しました。`);
+    }
+
+    try {
+      const previews = await Promise.all(toAdd.map(readFileAsDataUrl));
+      setReplyImageFiles((prev) => [...prev, ...toAdd]);
+      setReplyImagePreviews((prev) => [...prev, ...previews]);
+    } catch {
+      setReplyError("画像の読み込みに失敗しました。");
+    }
   }
 
-  function clearReplyImage() {
-    setReplyImageFile(null);
-    setReplyImagePreview(null);
-    setReplyImageFileName(null);
+  function removeReplyImage(index: number) {
+    setReplyImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setReplyImagePreviews((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleDeletePost() {
@@ -529,10 +548,10 @@ export default function PostDetailPage() {
     setReplyError(null);
     setSubmittingReply(true);
 
-    let uploadedImageUrl: string | null = null;
-    if (replyImageFile) {
+    const uploadedUrls: string[] = [];
+    for (const file of replyImageFiles) {
       try {
-        const blob = await compressImage(replyImageFile);
+        const blob = await compressImage(file);
         const fileName = `replies/${crypto.randomUUID()}.webp`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("post-images")
@@ -545,7 +564,7 @@ export default function PostDetailPage() {
         const { data: urlData } = supabase.storage
           .from("post-images")
           .getPublicUrl(uploadData.path);
-        uploadedImageUrl = urlData.publicUrl;
+        uploadedUrls.push(urlData.publicUrl);
       } catch (err) {
         if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
           setReplyError("圧縮後も画像が2MBを超えています。より小さい画像を選んでください。");
@@ -562,11 +581,12 @@ export default function PostDetailPage() {
       .insert({
         post_id: toDbId(String(post.id)),
         description: body,
-        image_url: uploadedImageUrl,
+        image_url: null,
+        image_urls: uploadedUrls,
         likes: 0,
         user_id: user?.id ?? null,
       })
-      .select("id, post_id, description, image_url, likes, created_at, user_id")
+      .select("id, post_id, description, image_url, image_urls, likes, created_at, user_id")
       .single();
 
     if (insertError) {
@@ -576,10 +596,6 @@ export default function PostDetailPage() {
       return;
     }
 
-    // 返信投稿者が userStats 未登録の場合（ページ読み込み後初めて返信するケース）、
-    // setReplies より先にプロフィールを取得して追加する。
-    // React 18 の automatic batching により setUserStats + setReplies は1回の再レンダーにまとまるため、
-    // 新規返信が画面に追加される時点で表示名が解決済みになる。
     if (user?.id && !userStats.has(user.id)) {
       const [profileRes, statsRes] = await Promise.all([
         supabase.from("profiles").select("display_name, username, avatar_url").eq("id", user.id).maybeSingle(),
@@ -605,7 +621,8 @@ export default function PostDetailPage() {
 
     setReplies((prev) => [...prev, mapRowToReply(data as ReplyRow)]);
     setReplyBody("");
-    clearReplyImage();
+    setReplyImageFiles([]);
+    setReplyImagePreviews([]);
     setSubmittingReply(false);
   }
 
@@ -745,7 +762,6 @@ export default function PostDetailPage() {
       ) : post ? (
         <div className="mt-6 space-y-6">
           <article className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-            {/* タイトル・カテゴリ+日時+Like・対象URL・本文 / 編集フォーム */}
             {editingPost ? (
               <div className="p-6 space-y-4">
                 <p className="text-sm font-semibold text-zinc-700">投稿を編集</p>
@@ -895,24 +911,17 @@ export default function PostDetailPage() {
               </div>
             )}
 
-            {/* 投稿画像（クリックで拡大） */}
-            {post.imageUrl && (
-              <button
-                type="button"
-                className="block w-full cursor-zoom-in border-t border-zinc-200"
-                onClick={() => setModalSrc(post.imageUrl!)}
-                aria-label="画像を拡大表示"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={post.imageUrl}
-                  alt=""
-                  className="max-h-[500px] w-full object-cover"
-                />
-              </button>
-            )}
+            {/* 投稿画像 */}
+            {!editingPost && (() => {
+              const urls = resolveImageUrls(post.imageUrls, post.imageUrl);
+              return urls.length > 0 ? (
+                <div className="border-t border-zinc-200 overflow-hidden">
+                  <ImageGrid urls={urls} onClickImage={(url) => setModalSrc(url)} />
+                </div>
+              ) : null;
+            })()}
 
-            {/* 削除・編集・通報ボタン（編集中は非表示） */}
+            {/* 削除・編集・通報ボタン */}
             {!editingPost && (
               <div className="flex items-center justify-between border-t border-zinc-100 px-6 py-3">
                 {user?.id && postUserId && user.id === postUserId ? (
@@ -955,34 +964,46 @@ export default function PostDetailPage() {
                 placeholder="返信を書く…"
                 className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
               />
-              <div className="flex flex-wrap items-center gap-3">
-                <label className="cursor-pointer rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100">
+              {/* 画像追加 */}
+              {replyImageFiles.length < MAX_REPLY_IMAGES && (
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100">
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     className="sr-only"
                     onChange={onReplyFileChange}
                   />
-                  {replyImageFileName ? replyImageFileName : "画像（任意）"}
+                  + 画像を追加
+                  <span className="font-normal text-zinc-400">
+                    （残り{MAX_REPLY_IMAGES - replyImageFiles.length}枚）
+                  </span>
                 </label>
-                {replyImageFileName && (
-                  <button
-                    type="button"
-                    onClick={clearReplyImage}
-                    className="text-sm text-zinc-500 underline underline-offset-2 hover:text-zinc-900"
-                  >
-                    削除
-                  </button>
-                )}
-              </div>
-              {replyImagePreview && (
-                <div className="overflow-hidden rounded-xl border border-zinc-200">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={replyImagePreview}
-                    alt="プレビュー"
-                    className="max-h-40 w-full object-cover"
-                  />
+              )}
+              {/* プレビューグリッド */}
+              {replyImagePreviews.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {replyImagePreviews.map((preview, i) => (
+                    <div
+                      key={i}
+                      className="relative overflow-hidden rounded-xl border border-zinc-200"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={preview}
+                        alt=""
+                        className="aspect-square w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeReplyImage(i)}
+                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white transition hover:bg-black/80"
+                        aria-label="画像を削除"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               {replyError && (
@@ -1065,21 +1086,15 @@ export default function PostDetailPage() {
                           <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
                             <LinkedText text={reply.description} />
                           </p>
-                          {reply.imageUrl && (
-                            <button
-                              type="button"
-                              className="mt-3 block w-full cursor-zoom-in overflow-hidden rounded-xl border border-zinc-200"
-                              onClick={() => setModalSrc(reply.imageUrl!)}
-                              aria-label="画像を拡大表示"
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={reply.imageUrl}
-                                alt=""
-                                className="max-h-[400px] w-full object-cover"
-                              />
-                            </button>
-                          )}
+                          {/* 返信画像 */}
+                          {(() => {
+                            const urls = resolveImageUrls(reply.imageUrls, reply.imageUrl);
+                            return urls.length > 0 ? (
+                              <div className="mt-3 overflow-hidden rounded-xl border border-zinc-200">
+                                <ImageGrid urls={urls} onClickImage={(url) => setModalSrc(url)} />
+                              </div>
+                            ) : null;
+                          })()}
                           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
                             <div className="flex flex-wrap items-center gap-2">
                               <AvatarIcon

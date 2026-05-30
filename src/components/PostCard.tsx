@@ -13,22 +13,22 @@ function isDataUrl(url: string) {
 }
 
 export function PostCard({ post, onLike }: PostCardProps) {
-  const hasImage = Boolean(post.imageUrl);
+  const thumbnailUrl = post.imageUrls[0] ?? post.imageUrl ?? null;
 
   return (
     <article className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition hover:shadow-md">
-      {hasImage && post.imageUrl && (
+      {thumbnailUrl && (
         <div className="relative aspect-[16/9] w-full bg-zinc-100">
-          {isDataUrl(post.imageUrl) ? (
+          {isDataUrl(thumbnailUrl) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={post.imageUrl}
+              src={thumbnailUrl}
               alt=""
               className="h-full w-full object-cover"
             />
           ) : (
             <Image
-              src={post.imageUrl}
+              src={thumbnailUrl}
               alt=""
               fill
               className="object-cover"

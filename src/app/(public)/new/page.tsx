@@ -1,12 +1,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePosts } from "@/context/PostsProvider";
 import { CATEGORIES, type CategorySlug } from "@/lib/categories";
 import { supabase } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compress-image";
+
+const MAX_IMAGES = 5;
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("read failed"));
+    };
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function NewPostPage() {
   const router = useRouter();
@@ -15,48 +29,47 @@ export default function NewPostPage() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<CategorySlug>("fashion");
   const [targetUrl, setTargetUrl] = useState("");
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageFileName, setImageFileName] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const submitLock = useRef(false);
 
-  const onFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      setError(null);
-      if (!file) {
-        setImagePreview(null);
-        setImageFileName(null);
-        setImageFile(null);
-        return;
-      }
-      if (!file.type.startsWith("image/")) {
-        setError("画像ファイルを選択してください。");
-        setImagePreview(null);
-        setImageFileName(null);
-        setImageFile(null);
-        return;
-      }
-      setImageFileName(file.name);
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result;
-        if (typeof result === "string") setImagePreview(result);
-      };
-      reader.readAsDataURL(file);
-    },
-    [],
-  );
-
-  const clearImage = useCallback(() => {
-    setImagePreview(null);
-    setImageFileName(null);
-    setImageFile(null);
+  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
     setError(null);
-  }, []);
+    if (files.length === 0) return;
+
+    if (files.some((f) => !f.type.startsWith("image/"))) {
+      setError("画像ファイルを選択してください。");
+      return;
+    }
+
+    const remaining = MAX_IMAGES - imageFiles.length;
+    if (remaining <= 0) {
+      setError(`画像は最大${MAX_IMAGES}枚まで追加できます。`);
+      return;
+    }
+
+    const toAdd = files.slice(0, remaining);
+    if (files.length > remaining) {
+      setError(`画像は最大${MAX_IMAGES}枚まで追加できます。最初の${remaining}枚のみ追加しました。`);
+    }
+
+    try {
+      const previews = await Promise.all(toAdd.map(readFileAsDataUrl));
+      setImageFiles((prev) => [...prev, ...toAdd]);
+      setImagePreviews((prev) => [...prev, ...previews]);
+    } catch {
+      setError("画像の読み込みに失敗しました。");
+    }
+  }
+
+  function removeImage(index: number) {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,10 +84,10 @@ export default function NewPostPage() {
     submitLock.current = true;
     setSubmitting(true);
 
-    let uploadedImageUrl: string | null = null;
-    if (imageFile) {
+    const uploadedUrls: string[] = [];
+    for (const file of imageFiles) {
       try {
-        const blob = await compressImage(imageFile);
+        const blob = await compressImage(file);
         const fileName = `posts/${crypto.randomUUID()}.webp`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("post-images")
@@ -88,7 +101,7 @@ export default function NewPostPage() {
         const { data: urlData } = supabase.storage
           .from("post-images")
           .getPublicUrl(uploadData.path);
-        uploadedImageUrl = urlData.publicUrl;
+        uploadedUrls.push(urlData.publicUrl);
       } catch (err) {
         if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
           setError("圧縮後も画像が2MBを超えています。より小さい画像を選んでください。");
@@ -105,7 +118,8 @@ export default function NewPostPage() {
       await addPost({
         title: t,
         description: d,
-        imageUrl: uploadedImageUrl,
+        imageUrl: null,
+        imageUrls: uploadedUrls,
         category,
         targetUrl: targetUrl.trim() || null,
       });
@@ -230,43 +244,47 @@ export default function NewPostPage() {
         <div className="space-y-2">
           <span className="text-sm font-medium text-zinc-800">
             画像{" "}
-            <span className="font-normal text-zinc-400">（任意）</span>
+            <span className="font-normal text-zinc-400">（任意・最大{MAX_IMAGES}枚）</span>
           </span>
           <div className="flex flex-col gap-3">
-            <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50/80 px-6 py-10 transition hover:border-zinc-300 hover:bg-zinc-50">
-              <input
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={onFileChange}
-              />
-              <span className="text-sm font-medium text-zinc-700">
-                クリックしてアップロード
-              </span>
-              <span className="mt-1 text-xs text-zinc-400">
-                PNG・JPG・WebP
-              </span>
-            </label>
-            {imageFileName && (
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600">
-                <span className="truncate">{imageFileName}</span>
-                <button
-                  type="button"
-                  onClick={clearImage}
-                  className="shrink-0 text-zinc-500 underline underline-offset-2 hover:text-zinc-900"
-                >
-                  削除
-                </button>
-              </div>
-            )}
-            {imagePreview && (
-              <div className="relative overflow-hidden rounded-xl border border-zinc-200">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imagePreview}
-                  alt="プレビュー"
-                  className="max-h-64 w-full object-cover"
+            {imageFiles.length < MAX_IMAGES && (
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50/80 px-6 py-6 text-sm transition hover:border-zinc-300 hover:bg-zinc-50">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="sr-only"
+                  onChange={onFileChange}
                 />
+                <span className="font-medium text-zinc-700">+ 画像を追加</span>
+                <span className="text-zinc-400">
+                  PNG・JPG・WebP（残り{MAX_IMAGES - imageFiles.length}枚）
+                </span>
+              </label>
+            )}
+            {imagePreviews.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {imagePreviews.map((preview, i) => (
+                  <div
+                    key={i}
+                    className="relative overflow-hidden rounded-xl border border-zinc-200"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={preview}
+                      alt=""
+                      className="aspect-square w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(i)}
+                      className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white transition hover:bg-black/80"
+                      aria-label="画像を削除"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
