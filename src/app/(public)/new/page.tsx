@@ -76,6 +76,7 @@ export default function NewPostPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!user?.id) return;
     setError(null);
     const t = title.trim();
     const d = description.trim();
@@ -91,7 +92,7 @@ export default function NewPostPage() {
     for (const file of imageFiles) {
       try {
         const blob = await compressImage(file);
-        const fileName = `posts/${crypto.randomUUID()}.webp`;
+        const fileName = `posts/${user.id}/${crypto.randomUUID()}.webp`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("post-images")
           .upload(fileName, blob, { contentType: "image/webp", upsert: false });

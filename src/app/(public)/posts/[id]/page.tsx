@@ -20,6 +20,8 @@ import { AvatarIcon } from "@/components/AvatarIcon";
 import { PostStatusBadge } from "@/components/PostStatusBadge";
 import { ImageEditor } from "@/components/ImageEditor";
 import { LoginPrompt } from "@/components/LoginPrompt";
+import { removeOwnedPostImages } from "@/lib/storage-helpers";
+import { ImageLightbox } from "@/components/ImageLightbox";
 
 const VALID_CATEGORIES: Set<string> = new Set(CATEGORIES.map((c) => c.slug));
 const MAX_REPLY_IMAGES = 5;
@@ -191,7 +193,7 @@ export default function PostDetailPage() {
   const [deletingReplyId, setDeletingReplyId] = useState<string | null>(null);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [likedReplies, setLikedReplies] = useState<Set<string>>(new Set());
-  const [modalSrc, setModalSrc] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const [userStats, setUserStats] = useState<Map<string, UserStat>>(new Map());
   // 投稿編集
   const [editingPost, setEditingPost] = useState(false);
@@ -235,15 +237,6 @@ export default function PostDetailPage() {
       setLikedReplies(readLikedSet(LIKED_REPLIES_KEY));
     }
   }, [user, authLoading]);
-
-  useEffect(() => {
-    if (!modalSrc) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setModalSrc(null);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [modalSrc]);
 
   useEffect(() => {
     const postId = params.id;
@@ -475,6 +468,7 @@ export default function PostDetailPage() {
     );
     if (!confirmed) return;
     setDeletingPost(true);
+    const postImageUrls = resolveImageUrls(post.imageUrls, post.imageUrl);
     const { error: deleteError } = await supabase
       .from("posts")
       .update({ status: "hidden" })
@@ -485,6 +479,11 @@ export default function PostDetailPage() {
       alert("投稿の削除に失敗しました。しばらくしてから再度お試しください。");
       setDeletingPost(false);
       return;
+    }
+    if (postImageUrls.length > 0) {
+      void removeOwnedPostImages(postImageUrls, user.id).catch((err: unknown) => {
+        console.error("Storage cleanup failed (non-blocking):", err);
+      });
     }
     await refetchPosts();
     router.push("/posts");
@@ -497,6 +496,11 @@ export default function PostDetailPage() {
     );
     if (!confirmed) return;
     setDeletingReplyId(replyId);
+    const targetReply = replies.find((r) => r.id === replyId);
+    const replyImageUrls = resolveImageUrls(
+      targetReply?.imageUrls ?? [],
+      targetReply?.imageUrl ?? null,
+    );
     const { error: deleteError } = await supabase
       .from("replies")
       .update({ status: "hidden" })
@@ -507,6 +511,11 @@ export default function PostDetailPage() {
       alert("返信の削除に失敗しました。しばらくしてから再度お試しください。");
       setDeletingReplyId(null);
       return;
+    }
+    if (replyImageUrls.length > 0) {
+      void removeOwnedPostImages(replyImageUrls, user.id).catch((err: unknown) => {
+        console.error("Storage cleanup failed (non-blocking):", err);
+      });
     }
     setReplies((prev) => prev.filter((r) => r.id !== replyId));
     setDeletingReplyId(null);
@@ -524,10 +533,12 @@ export default function PostDetailPage() {
     setSubmittingReply(true);
 
     const uploadedUrls: string[] = [];
+    const replyUserId = user?.id;
+    if (!replyUserId) { setSubmittingReply(false); return; }
     for (const file of replyImageFiles) {
       try {
         const blob = await compressImage(file);
-        const fileName = `replies/${crypto.randomUUID()}.webp`;
+        const fileName = `replies/${replyUserId}/${crypto.randomUUID()}.webp`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("post-images")
           .upload(fileName, blob, { contentType: "image/webp", upsert: false });
@@ -636,7 +647,7 @@ export default function PostDetailPage() {
     for (const file of newPostImageFiles) {
       try {
         const blob = await compressImage(file);
-        const fileName = `posts/${crypto.randomUUID()}.webp`;
+        const fileName = `posts/${user.id}/${crypto.randomUUID()}.webp`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("post-images")
           .upload(fileName, blob, { contentType: "image/webp", upsert: false });
@@ -659,6 +670,9 @@ export default function PostDetailPage() {
     }
 
     const finalImageUrls = [...editPostImageUrls, ...uploadedUrls];
+    const removedPostImageUrls = resolveImageUrls(post.imageUrls, post.imageUrl).filter(
+      (u) => !editPostImageUrls.includes(u),
+    );
     const { error: updateError } = await supabase
       .from("posts")
       .update({ title, description, target_url: targetUrl, category: editCategory, image_urls: finalImageUrls, image_url: null })
@@ -672,6 +686,11 @@ export default function PostDetailPage() {
     }
     setPost((prev) => prev ? { ...prev, title, description, targetUrl, category: editCategory, imageUrls: finalImageUrls, imageUrl: null } : prev);
     await refetchPosts();
+    if (removedPostImageUrls.length > 0) {
+      void removeOwnedPostImages(removedPostImageUrls, user.id).catch((err: unknown) => {
+        console.error("Storage cleanup failed (non-blocking):", err);
+      });
+    }
     setEditingPost(false);
     setNewPostImageFiles([]);
     setNewPostImagePreviews([]);
@@ -708,7 +727,7 @@ export default function PostDetailPage() {
     for (const file of newReplyImageFiles) {
       try {
         const blob = await compressImage(file);
-        const fileName = `replies/${crypto.randomUUID()}.webp`;
+        const fileName = `replies/${user.id}/${crypto.randomUUID()}.webp`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("post-images")
           .upload(fileName, blob, { contentType: "image/webp", upsert: false });
@@ -731,6 +750,11 @@ export default function PostDetailPage() {
     }
 
     const finalImageUrls = [...editReplyImageUrls, ...uploadedUrls];
+    const targetReply = replies.find((r) => r.id === replyId);
+    const removedReplyImageUrls = resolveImageUrls(
+      targetReply?.imageUrls ?? [],
+      targetReply?.imageUrl ?? null,
+    ).filter((u) => !editReplyImageUrls.includes(u));
     const { error: updateError } = await supabase
       .from("replies")
       .update({ description: body, image_urls: finalImageUrls, image_url: null })
@@ -747,6 +771,11 @@ export default function PostDetailPage() {
         r.id === replyId ? { ...r, description: body, imageUrls: finalImageUrls, imageUrl: null } : r,
       ),
     );
+    if (removedReplyImageUrls.length > 0) {
+      void removeOwnedPostImages(removedReplyImageUrls, user.id).catch((err: unknown) => {
+        console.error("Storage cleanup failed (non-blocking):", err);
+      });
+    }
     setEditingReplyId(null);
     setNewReplyImageFiles([]);
     setNewReplyImagePreviews([]);
@@ -875,6 +904,11 @@ export default function PostDetailPage() {
   function handleRemoveNewReplyImage(index: number) {
     setNewReplyImageFiles((prev) => prev.filter((_, i) => i !== index));
     setNewReplyImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function openLightbox(urls: string[], url: string) {
+    const idx = urls.indexOf(url);
+    setLightbox({ urls, index: idx >= 0 ? idx : 0 });
   }
 
   return (
@@ -1070,7 +1104,7 @@ export default function PostDetailPage() {
               const urls = resolveImageUrls(post.imageUrls, post.imageUrl);
               return urls.length > 0 ? (
                 <div className="border-t border-zinc-200 overflow-hidden">
-                  <ImageGrid urls={urls} onClickImage={(url) => setModalSrc(url)} />
+                  <ImageGrid urls={urls} onClickImage={(url) => openLightbox(urls, url)} />
                 </div>
               ) : null;
             })()}
@@ -1265,7 +1299,7 @@ export default function PostDetailPage() {
                             const urls = resolveImageUrls(reply.imageUrls, reply.imageUrl);
                             return urls.length > 0 ? (
                               <div className="mt-3 overflow-hidden rounded-xl border border-zinc-200">
-                                <ImageGrid urls={urls} onClickImage={(url) => setModalSrc(url)} />
+                                <ImageGrid urls={urls} onClickImage={(url) => openLightbox(urls, url)} />
                               </div>
                             ) : null;
                           })()}
@@ -1382,33 +1416,13 @@ export default function PostDetailPage() {
         </div>
       ) : null}
 
-      {modalSrc && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setModalSrc(null)}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={() => setModalSrc(null)}
-              className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-zinc-700 shadow-md transition hover:bg-zinc-100"
-              aria-label="閉じる"
-            >
-              ✕
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={modalSrc}
-              alt=""
-              className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
-            />
-          </div>
-        </div>
+      {lightbox && (
+        <ImageLightbox
+          urls={lightbox.urls}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onNavigate={(i) => setLightbox((prev) => prev ? { ...prev, index: i } : null)}
+        />
       )}
     </div>
   );
