@@ -52,7 +52,8 @@ export function PostCard({ post, onLike }: PostCardProps) {
             className="text-xs text-zinc-400"
             dateTime={post.createdAt}
           >
-            {new Date(post.createdAt).toLocaleDateString(undefined, {
+            {new Date(post.createdAt).toLocaleDateString("ja-JP", {
+              timeZone: "Asia/Tokyo",
               year: "numeric",
               month: "short",
               day: "numeric",

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthProvider";
+import { createSafeId } from "@/lib/create-safe-id";
 
 const REPORTS_KEY = "addbuyc_reported";
 
@@ -96,7 +97,7 @@ export function ReportButton({ targetType, targetId }: Props) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    const token = crypto.randomUUID();
+    const token = createSafeId();
     try {
       const res = await fetch("/api/reports", {
         method: "POST",
