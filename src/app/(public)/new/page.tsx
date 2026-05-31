@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthProvider";
 import { CATEGORIES, type CategorySlug } from "@/lib/categories";
 import { supabase } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compress-image";
+import { createSafeId } from "@/lib/create-safe-id";
 import { LoginPrompt } from "@/components/LoginPrompt";
 
 const MAX_IMAGES = 5;
@@ -90,32 +91,58 @@ export default function NewPostPage() {
 
     const uploadedUrls: string[] = [];
     for (const file of imageFiles) {
+      // 圧縮
+      let blob: Blob;
+      let contentType: "image/jpeg" | "image/webp";
+      let extension: "jpg" | "webp";
       try {
-        const blob = await compressImage(file);
-        const fileName = `posts/${user.id}/${crypto.randomUUID()}.webp`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("post-images")
-          .upload(fileName, blob, { contentType: "image/webp", upsert: false });
-        if (uploadError) {
-          setError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
-          submitLock.current = false;
-          setSubmitting(false);
-          return;
-        }
-        const { data: urlData } = supabase.storage
-          .from("post-images")
-          .getPublicUrl(uploadData.path);
-        uploadedUrls.push(urlData.publicUrl);
+        const result = await compressImage(file);
+        blob = result.blob;
+        contentType = result.contentType;
+        extension = result.extension;
       } catch (err) {
-        if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
+        console.error("[compress:failed] file:", file.name, file.type, file.size);
+        console.error("[compress:failed] err:", err instanceof Error ? err.message : String(err));
+        if (err instanceof Error && err.message === "HEIC_NOT_SUPPORTED") {
+          setError("この画像形式は処理できない場合があります。iPhoneのカメラ設定を「互換性優先」にするか、JPEG/PNG/WebP画像を選択してください。");
+        } else if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
           setError("圧縮後も画像が2MBを超えています。より小さい画像を選んでください。");
         } else {
-          setError("画像の処理に失敗しました。別の画像をお試しください。");
+          setError("画像の処理に失敗しました。別の画像を選択するか、JPEG/PNG/WebP形式の画像をお試しください。");
         }
         submitLock.current = false;
         setSubmitting(false);
         return;
       }
+      // アップロード
+      const fileName = `posts/${user.id}/${createSafeId()}.${extension}`;
+      let uploadedPath: string;
+      try {
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, blob, { contentType, upsert: false });
+        if (uploadError || !uploadData) {
+          console.error("[upload:failed] message:", uploadError?.message);
+          console.error("[upload:failed] detail:", JSON.stringify(uploadError));
+          console.error("[upload:failed] path:", fileName, "contentType:", contentType, "blobSize:", blob.size);
+          setError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
+          submitLock.current = false;
+          setSubmitting(false);
+          return;
+        }
+        uploadedPath = uploadData.path;
+      } catch (err) {
+        console.error("[upload:exception] path:", fileName, "contentType:", contentType, "blobSize:", blob.size);
+        console.error("[upload:exception] err:", err instanceof Error ? err.message : String(err));
+        setError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
+        submitLock.current = false;
+        setSubmitting(false);
+        return;
+      }
+      const { data: urlData } = supabase.storage
+        .from("post-images")
+        .getPublicUrl(uploadedPath);
+      uploadedUrls.push(urlData.publicUrl);
     }
 
     try {
@@ -269,9 +296,7 @@ export default function NewPostPage() {
                   onChange={onFileChange}
                 />
                 <span className="font-medium text-zinc-700">+ 画像を追加</span>
-                <span className="text-zinc-400">
-                  PNG・JPG・WebP（残り{MAX_IMAGES - imageFiles.length}枚）
-                </span>
+                <span className="text-zinc-400">（残り{MAX_IMAGES - imageFiles.length}枚）</span>
               </label>
             )}
             {imagePreviews.length > 0 && (

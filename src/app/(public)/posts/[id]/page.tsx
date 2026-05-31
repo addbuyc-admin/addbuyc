@@ -8,6 +8,7 @@ import { usePosts } from "@/context/PostsProvider";
 import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compress-image";
+import { createSafeId } from "@/lib/create-safe-id";
 import { LinkedText } from "@/components/LinkedText";
 import { ImageGrid } from "@/components/ImageGrid";
 import type { Post } from "@/lib/types";
@@ -464,11 +465,13 @@ export default function PostDetailPage() {
   async function handleDeletePost() {
     if (!post || !user?.id || deletingPost) return;
     const confirmed = window.confirm(
-      "この投稿を削除しますか？削除すると一覧や詳細画面には表示されなくなります。",
+      "この投稿を削除しますか？投稿本文・画像・返信は表示されなくなります。",
     );
     if (!confirmed) return;
     setDeletingPost(true);
     const postImageUrls = resolveImageUrls(post.imageUrls, post.imageUrl);
+    const replyImageUrls = replies.flatMap((r) => resolveImageUrls(r.imageUrls, r.imageUrl));
+    const allImageUrls = [...postImageUrls, ...replyImageUrls];
     const { error: deleteError } = await supabase
       .from("posts")
       .update({ status: "hidden" })
@@ -480,8 +483,8 @@ export default function PostDetailPage() {
       setDeletingPost(false);
       return;
     }
-    if (postImageUrls.length > 0) {
-      void removeOwnedPostImages(postImageUrls, user.id).catch((err: unknown) => {
+    if (allImageUrls.length > 0) {
+      void removeOwnedPostImages(allImageUrls, user.id).catch((err: unknown) => {
         console.error("Storage cleanup failed (non-blocking):", err);
       });
     }
@@ -492,7 +495,7 @@ export default function PostDetailPage() {
   async function handleDeleteReply(replyId: string) {
     if (!user?.id || deletingReplyId) return;
     const confirmed = window.confirm(
-      "この返信を削除しますか？削除すると画面には表示されなくなります。",
+      "この返信を削除しますか？返信本文と画像は表示されなくなります。",
     );
     if (!confirmed) return;
     setDeletingReplyId(replyId);
@@ -536,30 +539,55 @@ export default function PostDetailPage() {
     const replyUserId = user?.id;
     if (!replyUserId) { setSubmittingReply(false); return; }
     for (const file of replyImageFiles) {
+      // 圧縮
+      let blob: Blob;
+      let contentType: "image/jpeg" | "image/webp";
+      let extension: "jpg" | "webp";
       try {
-        const blob = await compressImage(file);
-        const fileName = `replies/${replyUserId}/${crypto.randomUUID()}.webp`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("post-images")
-          .upload(fileName, blob, { contentType: "image/webp", upsert: false });
-        if (uploadError) {
-          setReplyError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
-          setSubmittingReply(false);
-          return;
-        }
-        const { data: urlData } = supabase.storage
-          .from("post-images")
-          .getPublicUrl(uploadData.path);
-        uploadedUrls.push(urlData.publicUrl);
+        const result = await compressImage(file);
+        blob = result.blob;
+        contentType = result.contentType;
+        extension = result.extension;
       } catch (err) {
-        if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
+        console.error("[compress:failed] file:", file.name, file.type, file.size);
+        console.error("[compress:failed] err:", err instanceof Error ? err.message : String(err));
+        if (err instanceof Error && err.message === "HEIC_NOT_SUPPORTED") {
+          setReplyError("この画像形式は処理できない場合があります。iPhoneのカメラ設定を「互換性優先」にするか、JPEG/PNG/WebP画像を選択してください。");
+        } else if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
           setReplyError("圧縮後も画像が2MBを超えています。より小さい画像を選んでください。");
         } else {
-          setReplyError("画像の処理に失敗しました。別の画像をお試しください。");
+          setReplyError("画像の処理に失敗しました。別の画像を選択するか、JPEG/PNG/WebP形式の画像をお試しください。");
         }
         setSubmittingReply(false);
         return;
       }
+      // アップロード
+      const fileName = `replies/${replyUserId}/${createSafeId()}.${extension}`;
+      let uploadedPath: string;
+      try {
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, blob, { contentType, upsert: false });
+        if (uploadError || !uploadData) {
+          console.error("[upload:failed] message:", uploadError?.message);
+          console.error("[upload:failed] detail:", JSON.stringify(uploadError));
+          console.error("[upload:failed] path:", fileName, "contentType:", contentType, "blobSize:", blob.size);
+          setReplyError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
+          setSubmittingReply(false);
+          return;
+        }
+        uploadedPath = uploadData.path;
+      } catch (err) {
+        console.error("[upload:exception] path:", fileName, "contentType:", contentType, "blobSize:", blob.size);
+        console.error("[upload:exception] err:", err instanceof Error ? err.message : String(err));
+        setReplyError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
+        setSubmittingReply(false);
+        return;
+      }
+      const { data: urlData } = supabase.storage
+        .from("post-images")
+        .getPublicUrl(uploadedPath);
+      uploadedUrls.push(urlData.publicUrl);
     }
 
     const { data, error: insertError } = await supabase
@@ -645,28 +673,53 @@ export default function PostDetailPage() {
 
     const uploadedUrls: string[] = [];
     for (const file of newPostImageFiles) {
+      // 圧縮
+      let blob: Blob;
+      let contentType: "image/jpeg" | "image/webp";
+      let extension: "jpg" | "webp";
       try {
-        const blob = await compressImage(file);
-        const fileName = `posts/${user.id}/${crypto.randomUUID()}.webp`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("post-images")
-          .upload(fileName, blob, { contentType: "image/webp", upsert: false });
-        if (uploadError) {
-          setEditPostError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
-          setSavingPost(false);
-          return;
-        }
-        const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(uploadData.path);
-        uploadedUrls.push(urlData.publicUrl);
+        const result = await compressImage(file);
+        blob = result.blob;
+        contentType = result.contentType;
+        extension = result.extension;
       } catch (err) {
-        if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
+        console.error("[compress:failed] file:", file.name, file.type, file.size);
+        console.error("[compress:failed] err:", err instanceof Error ? err.message : String(err));
+        if (err instanceof Error && err.message === "HEIC_NOT_SUPPORTED") {
+          setEditPostError("この画像形式は処理できない場合があります。iPhoneのカメラ設定を「互換性優先」にするか、JPEG/PNG/WebP画像を選択してください。");
+        } else if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
           setEditPostError("圧縮後も画像が2MBを超えています。より小さい画像を選んでください。");
         } else {
-          setEditPostError("画像の処理に失敗しました。別の画像をお試しください。");
+          setEditPostError("画像の処理に失敗しました。別の画像を選択するか、JPEG/PNG/WebP形式の画像をお試しください。");
         }
         setSavingPost(false);
         return;
       }
+      // アップロード
+      const fileName = `posts/${user.id}/${createSafeId()}.${extension}`;
+      let uploadedPath: string;
+      try {
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, blob, { contentType, upsert: false });
+        if (uploadError || !uploadData) {
+          console.error("[upload:failed] message:", uploadError?.message);
+          console.error("[upload:failed] detail:", JSON.stringify(uploadError));
+          console.error("[upload:failed] path:", fileName, "contentType:", contentType, "blobSize:", blob.size);
+          setEditPostError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
+          setSavingPost(false);
+          return;
+        }
+        uploadedPath = uploadData.path;
+      } catch (err) {
+        console.error("[upload:exception] path:", fileName, "contentType:", contentType, "blobSize:", blob.size);
+        console.error("[upload:exception] err:", err instanceof Error ? err.message : String(err));
+        setEditPostError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
+        setSavingPost(false);
+        return;
+      }
+      const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(uploadedPath);
+      uploadedUrls.push(urlData.publicUrl);
     }
 
     const finalImageUrls = [...editPostImageUrls, ...uploadedUrls];
@@ -725,28 +778,53 @@ export default function PostDetailPage() {
 
     const uploadedUrls: string[] = [];
     for (const file of newReplyImageFiles) {
+      // 圧縮
+      let blob: Blob;
+      let contentType: "image/jpeg" | "image/webp";
+      let extension: "jpg" | "webp";
       try {
-        const blob = await compressImage(file);
-        const fileName = `replies/${user.id}/${crypto.randomUUID()}.webp`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("post-images")
-          .upload(fileName, blob, { contentType: "image/webp", upsert: false });
-        if (uploadError) {
-          setEditReplyError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
-          setSavingReplyId(null);
-          return;
-        }
-        const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(uploadData.path);
-        uploadedUrls.push(urlData.publicUrl);
+        const result = await compressImage(file);
+        blob = result.blob;
+        contentType = result.contentType;
+        extension = result.extension;
       } catch (err) {
-        if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
+        console.error("[compress:failed] file:", file.name, file.type, file.size);
+        console.error("[compress:failed] err:", err instanceof Error ? err.message : String(err));
+        if (err instanceof Error && err.message === "HEIC_NOT_SUPPORTED") {
+          setEditReplyError("この画像形式は処理できない場合があります。iPhoneのカメラ設定を「互換性優先」にするか、JPEG/PNG/WebP画像を選択してください。");
+        } else if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
           setEditReplyError("圧縮後も画像が2MBを超えています。より小さい画像を選んでください。");
         } else {
-          setEditReplyError("画像の処理に失敗しました。別の画像をお試しください。");
+          setEditReplyError("画像の処理に失敗しました。別の画像を選択するか、JPEG/PNG/WebP形式の画像をお試しください。");
         }
         setSavingReplyId(null);
         return;
       }
+      // アップロード
+      const fileName = `replies/${user.id}/${createSafeId()}.${extension}`;
+      let uploadedPath: string;
+      try {
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, blob, { contentType, upsert: false });
+        if (uploadError || !uploadData) {
+          console.error("[upload:failed] message:", uploadError?.message);
+          console.error("[upload:failed] detail:", JSON.stringify(uploadError));
+          console.error("[upload:failed] path:", fileName, "contentType:", contentType, "blobSize:", blob.size);
+          setEditReplyError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
+          setSavingReplyId(null);
+          return;
+        }
+        uploadedPath = uploadData.path;
+      } catch (err) {
+        console.error("[upload:exception] path:", fileName, "contentType:", contentType, "blobSize:", blob.size);
+        console.error("[upload:exception] err:", err instanceof Error ? err.message : String(err));
+        setEditReplyError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
+        setSavingReplyId(null);
+        return;
+      }
+      const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(uploadedPath);
+      uploadedUrls.push(urlData.publicUrl);
     }
 
     const finalImageUrls = [...editReplyImageUrls, ...uploadedUrls];

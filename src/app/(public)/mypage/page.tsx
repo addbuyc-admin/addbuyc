@@ -308,7 +308,7 @@ export default function MyPage() {
       const path = `${user.id}/avatar.webp`;
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(path, uploadBlob, { upsert: true, contentType: "image/webp" });
+        .upload(path, uploadBlob, { upsert: true, contentType: uploadBlob.type || "image/webp" });
 
       if (uploadError) {
         setError("画像のアップロードに失敗しました。しばらくしてから再度お試しください。");
