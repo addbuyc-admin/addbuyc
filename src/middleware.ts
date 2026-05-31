@@ -34,7 +34,7 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // /dashboard 管理者判定（/dashboard/login は対象外にしない — 後述のリダイレクトで処理）
+  // /dashboard へのアクセスは Supabase Auth + profiles.role = 'admin' で制御
   if (pathname.startsWith("/dashboard")) {
     // 未ログイン → /signin へ
     if (!user) {
