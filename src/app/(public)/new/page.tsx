@@ -4,9 +4,11 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePosts } from "@/context/PostsProvider";
+import { useAuth } from "@/context/AuthProvider";
 import { CATEGORIES, type CategorySlug } from "@/lib/categories";
 import { supabase } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compress-image";
+import { LoginPrompt } from "@/components/LoginPrompt";
 
 const MAX_IMAGES = 5;
 
@@ -25,6 +27,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 export default function NewPostPage() {
   const router = useRouter();
   const { addPost, refetchPosts } = usePosts();
+  const { user, loading: authLoading } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<CategorySlug>("fashion");
@@ -149,6 +152,14 @@ export default function NewPostPage() {
         </p>
       </div>
 
+      {authLoading ? (
+        <div className="h-48 animate-pulse rounded-2xl bg-zinc-100" />
+      ) : !user ? (
+        <LoginPrompt
+          message="相談を投稿するにはログインが必要です"
+          description="無料アカウントで、投稿の編集・通知・画像管理ができるようになります"
+        />
+      ) : (
       <form
         onSubmit={handleSubmit}
         className="flex flex-col gap-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
@@ -312,6 +323,7 @@ export default function NewPostPage() {
           </Link>
         </div>
       </form>
+      )}
     </div>
   );
 }
