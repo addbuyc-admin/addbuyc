@@ -18,9 +18,11 @@ import { getAdvisorRank, type AdvisorRankInfo } from "@/lib/advisor-rank";
 import { AdvisorRankBadge } from "@/components/AdvisorRankBadge";
 import { AvatarIcon } from "@/components/AvatarIcon";
 import { PostStatusBadge } from "@/components/PostStatusBadge";
+import { ImageEditor } from "@/components/ImageEditor";
 
 const VALID_CATEGORIES: Set<string> = new Set(CATEGORIES.map((c) => c.slug));
 const MAX_REPLY_IMAGES = 5;
+const MAX_POST_IMAGES = 5;
 
 function toCategory(value: string | null): CategorySlug {
   if (value && VALID_CATEGORIES.has(value)) return value as CategorySlug;
@@ -210,6 +212,13 @@ export default function PostDetailPage() {
   const [savingReplyId, setSavingReplyId] = useState<string | null>(null);
   // ベストアンサー
   const [settingBestAnswer, setSettingBestAnswer] = useState(false);
+  // 投稿・返信編集フォーム内の画像
+  const [editPostImageUrls, setEditPostImageUrls] = useState<string[]>([]);
+  const [newPostImageFiles, setNewPostImageFiles] = useState<File[]>([]);
+  const [newPostImagePreviews, setNewPostImagePreviews] = useState<string[]>([]);
+  const [editReplyImageUrls, setEditReplyImageUrls] = useState<string[]>([]);
+  const [newReplyImageFiles, setNewReplyImageFiles] = useState<File[]>([]);
+  const [newReplyImagePreviews, setNewReplyImagePreviews] = useState<string[]>([]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -633,12 +642,18 @@ export default function PostDetailPage() {
     setEditTargetUrl(post.targetUrl ?? "");
     setEditCategory(post.category);
     setEditPostError(null);
+    setEditPostImageUrls(resolveImageUrls(post.imageUrls, post.imageUrl));
+    setNewPostImageFiles([]);
+    setNewPostImagePreviews([]);
     setEditingPost(true);
   }
 
   function handleCancelEditPost() {
     setEditingPost(false);
     setEditPostError(null);
+    setEditPostImageUrls([]);
+    setNewPostImageFiles([]);
+    setNewPostImagePreviews([]);
   }
 
   async function handleSavePost() {
@@ -650,9 +665,37 @@ export default function PostDetailPage() {
     if (!description) { setEditPostError("相談内容を入力してください"); return; }
     setEditPostError(null);
     setSavingPost(true);
+
+    const uploadedUrls: string[] = [];
+    for (const file of newPostImageFiles) {
+      try {
+        const blob = await compressImage(file);
+        const fileName = `posts/${crypto.randomUUID()}.webp`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, blob, { contentType: "image/webp", upsert: false });
+        if (uploadError) {
+          setEditPostError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
+          setSavingPost(false);
+          return;
+        }
+        const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(uploadData.path);
+        uploadedUrls.push(urlData.publicUrl);
+      } catch (err) {
+        if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
+          setEditPostError("圧縮後も画像が2MBを超えています。より小さい画像を選んでください。");
+        } else {
+          setEditPostError("画像の処理に失敗しました。別の画像をお試しください。");
+        }
+        setSavingPost(false);
+        return;
+      }
+    }
+
+    const finalImageUrls = [...editPostImageUrls, ...uploadedUrls];
     const { error: updateError } = await supabase
       .from("posts")
-      .update({ title, description, target_url: targetUrl, category: editCategory })
+      .update({ title, description, target_url: targetUrl, category: editCategory, image_urls: finalImageUrls, image_url: null })
       .eq("id", toDbId(String(post.id)))
       .eq("user_id", user.id);
     if (updateError) {
@@ -661,9 +704,11 @@ export default function PostDetailPage() {
       setSavingPost(false);
       return;
     }
-    setPost((prev) => prev ? { ...prev, title, description, targetUrl, category: editCategory } : prev);
+    setPost((prev) => prev ? { ...prev, title, description, targetUrl, category: editCategory, imageUrls: finalImageUrls, imageUrl: null } : prev);
     await refetchPosts();
     setEditingPost(false);
+    setNewPostImageFiles([]);
+    setNewPostImagePreviews([]);
     setSavingPost(false);
   }
 
@@ -672,12 +717,18 @@ export default function PostDetailPage() {
     if (!reply) return;
     setEditReplyBody(reply.description);
     setEditReplyError(null);
+    setEditReplyImageUrls(resolveImageUrls(reply.imageUrls, reply.imageUrl));
+    setNewReplyImageFiles([]);
+    setNewReplyImagePreviews([]);
     setEditingReplyId(replyId);
   }
 
   function handleCancelEditReply() {
     setEditingReplyId(null);
     setEditReplyError(null);
+    setEditReplyImageUrls([]);
+    setNewReplyImageFiles([]);
+    setNewReplyImagePreviews([]);
   }
 
   async function handleSaveReply(replyId: string) {
@@ -686,9 +737,37 @@ export default function PostDetailPage() {
     if (!body) { setEditReplyError("返信内容を入力してください"); return; }
     setEditReplyError(null);
     setSavingReplyId(replyId);
+
+    const uploadedUrls: string[] = [];
+    for (const file of newReplyImageFiles) {
+      try {
+        const blob = await compressImage(file);
+        const fileName = `replies/${crypto.randomUUID()}.webp`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, blob, { contentType: "image/webp", upsert: false });
+        if (uploadError) {
+          setEditReplyError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
+          setSavingReplyId(null);
+          return;
+        }
+        const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(uploadData.path);
+        uploadedUrls.push(urlData.publicUrl);
+      } catch (err) {
+        if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
+          setEditReplyError("圧縮後も画像が2MBを超えています。より小さい画像を選んでください。");
+        } else {
+          setEditReplyError("画像の処理に失敗しました。別の画像をお試しください。");
+        }
+        setSavingReplyId(null);
+        return;
+      }
+    }
+
+    const finalImageUrls = [...editReplyImageUrls, ...uploadedUrls];
     const { error: updateError } = await supabase
       .from("replies")
-      .update({ description: body })
+      .update({ description: body, image_urls: finalImageUrls, image_url: null })
       .eq("id", toDbId(replyId))
       .eq("user_id", user.id);
     if (updateError) {
@@ -697,8 +776,14 @@ export default function PostDetailPage() {
       setSavingReplyId(null);
       return;
     }
-    setReplies((prev) => prev.map((r) => r.id === replyId ? { ...r, description: body } : r));
+    setReplies((prev) =>
+      prev.map((r) =>
+        r.id === replyId ? { ...r, description: body, imageUrls: finalImageUrls, imageUrl: null } : r,
+      ),
+    );
     setEditingReplyId(null);
+    setNewReplyImageFiles([]);
+    setNewReplyImagePreviews([]);
     setSavingReplyId(null);
   }
 
@@ -742,6 +827,88 @@ export default function PostDetailPage() {
     setReplies((prev) => prev.map((r) => ({ ...r, isBestAnswer: false })));
     await refetchPosts();
     setSettingBestAnswer(false);
+  }
+
+  function handleRemoveExistingPostImage(index: number) {
+    setEditPostImageUrls((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function onPostImageFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    setEditPostError(null);
+    if (files.length === 0) return;
+
+    if (files.some((f) => !f.type.startsWith("image/"))) {
+      setEditPostError("画像ファイルを選択してください。");
+      return;
+    }
+
+    const total = editPostImageUrls.length + newPostImageFiles.length;
+    const remaining = MAX_POST_IMAGES - total;
+    if (remaining <= 0) {
+      setEditPostError(`画像は最大${MAX_POST_IMAGES}枚まで追加できます。`);
+      return;
+    }
+
+    const toAdd = files.slice(0, remaining);
+    if (files.length > remaining) {
+      setEditPostError(`画像は最大${MAX_POST_IMAGES}枚まで追加できます。最初の${remaining}枚のみ追加しました。`);
+    }
+
+    try {
+      const previews = await Promise.all(toAdd.map(readFileAsDataUrl));
+      setNewPostImageFiles((prev) => [...prev, ...toAdd]);
+      setNewPostImagePreviews((prev) => [...prev, ...previews]);
+    } catch {
+      setEditPostError("画像の読み込みに失敗しました。");
+    }
+  }
+
+  function handleRemoveNewPostImage(index: number) {
+    setNewPostImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setNewPostImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleRemoveExistingReplyImage(index: number) {
+    setEditReplyImageUrls((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function onReplyImageEditFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    setEditReplyError(null);
+    if (files.length === 0) return;
+
+    if (files.some((f) => !f.type.startsWith("image/"))) {
+      setEditReplyError("画像ファイルを選択してください。");
+      return;
+    }
+
+    const total = editReplyImageUrls.length + newReplyImageFiles.length;
+    const remaining = MAX_REPLY_IMAGES - total;
+    if (remaining <= 0) {
+      setEditReplyError(`画像は最大${MAX_REPLY_IMAGES}枚まで追加できます。`);
+      return;
+    }
+
+    const toAdd = files.slice(0, remaining);
+    if (files.length > remaining) {
+      setEditReplyError(`画像は最大${MAX_REPLY_IMAGES}枚まで追加できます。最初の${remaining}枚のみ追加しました。`);
+    }
+
+    try {
+      const previews = await Promise.all(toAdd.map(readFileAsDataUrl));
+      setNewReplyImageFiles((prev) => [...prev, ...toAdd]);
+      setNewReplyImagePreviews((prev) => [...prev, ...previews]);
+    } catch {
+      setEditReplyError("画像の読み込みに失敗しました。");
+    }
+  }
+
+  function handleRemoveNewReplyImage(index: number) {
+    setNewReplyImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setNewReplyImagePreviews((prev) => prev.filter((_, i) => i !== index));
   }
 
   return (
@@ -810,6 +977,18 @@ export default function PostDetailPage() {
                     onChange={(e) => setEditDescription(e.target.value)}
                     rows={6}
                     className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-zinc-800">画像</p>
+                  <ImageEditor
+                    existingUrls={editPostImageUrls}
+                    newPreviews={newPostImagePreviews}
+                    maxImages={MAX_POST_IMAGES}
+                    saving={savingPost}
+                    onRemoveExisting={handleRemoveExistingPostImage}
+                    onAddFiles={onPostImageFileChange}
+                    onRemoveNew={handleRemoveNewPostImage}
                   />
                 </div>
                 {editPostError && (
@@ -1058,6 +1237,15 @@ export default function PostDetailPage() {
                             onChange={(e) => setEditReplyBody(e.target.value)}
                             rows={4}
                             className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+                          />
+                          <ImageEditor
+                            existingUrls={editReplyImageUrls}
+                            newPreviews={newReplyImagePreviews}
+                            maxImages={MAX_REPLY_IMAGES}
+                            saving={savingReplyId === reply.id}
+                            onRemoveExisting={handleRemoveExistingReplyImage}
+                            onAddFiles={onReplyImageEditFileChange}
+                            onRemoveNew={handleRemoveNewReplyImage}
                           />
                           {editReplyError && (
                             <p className="text-sm text-red-600" role="alert">{editReplyError}</p>
