@@ -21,6 +21,7 @@ import { PostStatusBadge } from "@/components/PostStatusBadge";
 import { ImageEditor } from "@/components/ImageEditor";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { removeOwnedPostImages } from "@/lib/storage-helpers";
+import { ImageLightbox } from "@/components/ImageLightbox";
 
 const VALID_CATEGORIES: Set<string> = new Set(CATEGORIES.map((c) => c.slug));
 const MAX_REPLY_IMAGES = 5;
@@ -192,7 +193,7 @@ export default function PostDetailPage() {
   const [deletingReplyId, setDeletingReplyId] = useState<string | null>(null);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [likedReplies, setLikedReplies] = useState<Set<string>>(new Set());
-  const [modalSrc, setModalSrc] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const [userStats, setUserStats] = useState<Map<string, UserStat>>(new Map());
   // 投稿編集
   const [editingPost, setEditingPost] = useState(false);
@@ -236,15 +237,6 @@ export default function PostDetailPage() {
       setLikedReplies(readLikedSet(LIKED_REPLIES_KEY));
     }
   }, [user, authLoading]);
-
-  useEffect(() => {
-    if (!modalSrc) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setModalSrc(null);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [modalSrc]);
 
   useEffect(() => {
     const postId = params.id;
@@ -914,6 +906,11 @@ export default function PostDetailPage() {
     setNewReplyImagePreviews((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function openLightbox(urls: string[], url: string) {
+    const idx = urls.indexOf(url);
+    setLightbox({ urls, index: idx >= 0 ? idx : 0 });
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <Link
@@ -1107,7 +1104,7 @@ export default function PostDetailPage() {
               const urls = resolveImageUrls(post.imageUrls, post.imageUrl);
               return urls.length > 0 ? (
                 <div className="border-t border-zinc-200 overflow-hidden">
-                  <ImageGrid urls={urls} onClickImage={(url) => setModalSrc(url)} />
+                  <ImageGrid urls={urls} onClickImage={(url) => openLightbox(urls, url)} />
                 </div>
               ) : null;
             })()}
@@ -1302,7 +1299,7 @@ export default function PostDetailPage() {
                             const urls = resolveImageUrls(reply.imageUrls, reply.imageUrl);
                             return urls.length > 0 ? (
                               <div className="mt-3 overflow-hidden rounded-xl border border-zinc-200">
-                                <ImageGrid urls={urls} onClickImage={(url) => setModalSrc(url)} />
+                                <ImageGrid urls={urls} onClickImage={(url) => openLightbox(urls, url)} />
                               </div>
                             ) : null;
                           })()}
@@ -1419,33 +1416,13 @@ export default function PostDetailPage() {
         </div>
       ) : null}
 
-      {modalSrc && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setModalSrc(null)}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={() => setModalSrc(null)}
-              className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-zinc-700 shadow-md transition hover:bg-zinc-100"
-              aria-label="閉じる"
-            >
-              ✕
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={modalSrc}
-              alt=""
-              className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
-            />
-          </div>
-        </div>
+      {lightbox && (
+        <ImageLightbox
+          urls={lightbox.urls}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onNavigate={(i) => setLightbox((prev) => prev ? { ...prev, index: i } : null)}
+        />
       )}
     </div>
   );
