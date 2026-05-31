@@ -19,6 +19,7 @@ import { AdvisorRankBadge } from "@/components/AdvisorRankBadge";
 import { AvatarIcon } from "@/components/AvatarIcon";
 import { PostStatusBadge } from "@/components/PostStatusBadge";
 import { ImageEditor } from "@/components/ImageEditor";
+import { LoginPrompt } from "@/components/LoginPrompt";
 
 const VALID_CATEGORIES: Set<string> = new Set(CATEGORIES.map((c) => c.slug));
 const MAX_REPLY_IMAGES = 5;
@@ -171,11 +172,6 @@ function readLikedSet(key: string) {
   }
 }
 
-function writeLikedSet(key: string, values: Set<string>) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(Array.from(values)));
-}
-
 export default function PostDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -212,6 +208,9 @@ export default function PostDetailPage() {
   const [savingReplyId, setSavingReplyId] = useState<string | null>(null);
   // ベストアンサー
   const [settingBestAnswer, setSettingBestAnswer] = useState(false);
+  // ゲスト操作時のログイン案内
+  const [showLikeLoginHint, setShowLikeLoginHint] = useState(false);
+  const [likeLoginHintReplyId, setLikeLoginHintReplyId] = useState<string | null>(null);
   // 投稿・返信編集フォーム内の画像
   const [editPostImageUrls, setEditPostImageUrls] = useState<string[]>([]);
   const [newPostImageFiles, setNewPostImageFiles] = useState<File[]>([]);
@@ -370,19 +369,7 @@ export default function PostDetailPage() {
         return next;
       });
     } else {
-      if (likedPosts.has(postId)) return;
-      const persistedLikes = await likePost(postId);
-      if (persistedLikes === null) {
-        console.error("Failed to like post:", postId);
-        return;
-      }
-      setPost((prev) => (prev ? { ...prev, likes: persistedLikes } : prev));
-      setLikedPosts((prev) => {
-        const next = new Set(prev);
-        next.add(postId);
-        writeLikedSet(LIKED_POSTS_KEY, next);
-        return next;
-      });
+      setShowLikeLoginHint(true);
     }
   }
 
@@ -441,28 +428,7 @@ export default function PostDetailPage() {
         return next;
       });
     } else {
-      if (likedReplies.has(replyId)) return;
-      const nextLikes = target.likes + 1;
-      setReplies((prev) =>
-        prev.map((r) => r.id === replyId ? { ...r, likes: nextLikes } : r),
-      );
-      const { error: likeError } = await supabase
-        .from("replies")
-        .update({ likes: nextLikes })
-        .eq("id", toDbId(replyId));
-      if (likeError) {
-        console.error("Failed to like reply:", likeError.message);
-        setReplies((prev) =>
-          prev.map((r) => r.id === replyId ? { ...r, likes: target.likes } : r),
-        );
-        return;
-      }
-      setLikedReplies((prev) => {
-        const next = new Set(prev);
-        next.add(replyId);
-        writeLikedSet(LIKED_REPLIES_KEY, next);
-        return next;
-      });
+      setLikeLoginHintReplyId(replyId);
     }
   }
 
@@ -1036,7 +1002,7 @@ export default function PostDetailPage() {
                         <button
                           type="button"
                           onClick={handleLikePost}
-                          disabled={isSelfLike || (!user?.id && isPostLiked)}
+                          disabled={isSelfLike}
                           className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${
                             isPostLiked && user?.id
                               ? "border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:bg-rose-100"
@@ -1050,6 +1016,15 @@ export default function PostDetailPage() {
                       );
                     })()}
                   </div>
+                  {showLikeLoginHint && !user?.id && (
+                    <p className="mt-1.5 text-right text-xs text-zinc-500">
+                      Likeするには{" "}
+                      <Link href="/signin" className="underline underline-offset-2 hover:text-zinc-700">
+                        ログイン
+                      </Link>
+                      {" "}が必要です
+                    </p>
+                  )}
                   <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
                     <AvatarIcon
                       avatarUrl={resolveAvatarUrl(postUserId, userStats)}
@@ -1135,6 +1110,16 @@ export default function PostDetailPage() {
             <h2 className="text-lg font-semibold tracking-tight text-zinc-900">
               Reply to this post
             </h2>
+            {authLoading ? (
+              <div className="mt-4 h-32 animate-pulse rounded-xl bg-zinc-100" />
+            ) : !user ? (
+              <div className="mt-4">
+                <LoginPrompt
+                  message="返信するにはログインが必要です"
+                  description="ログインすると、返信へのLikeやベストアンサー通知も受け取れます"
+                />
+              </div>
+            ) : (
             <form onSubmit={handleReplySubmit} className="mt-4 space-y-3">
               <textarea
                 value={replyBody}
@@ -1198,6 +1183,7 @@ export default function PostDetailPage() {
                 {submittingReply ? "投稿中..." : "返信する"}
               </button>
             </form>
+            )}
           </section>
 
           <section className="space-y-3">
@@ -1315,7 +1301,7 @@ export default function PostDetailPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleLikeReply(reply.id)}
-                                  disabled={isSelfLikeReply || (!user?.id && isReplyLiked)}
+                                  disabled={isSelfLikeReply}
                                   className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${
                                     isReplyLiked && user?.id
                                       ? "border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:bg-rose-100"
@@ -1329,6 +1315,15 @@ export default function PostDetailPage() {
                               );
                             })()}
                           </div>
+                          {likeLoginHintReplyId === reply.id && !user?.id && (
+                            <p className="mt-1.5 text-right text-xs text-zinc-500">
+                              Likeするには{" "}
+                              <Link href="/signin" className="underline underline-offset-2 hover:text-zinc-700">
+                                ログイン
+                              </Link>
+                              {" "}が必要です
+                            </p>
+                          )}
                           <div className="mt-2 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               {user?.id && reply.userId && user.id === reply.userId && (

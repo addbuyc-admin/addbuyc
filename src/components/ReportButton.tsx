@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useAuth } from "@/context/AuthProvider";
 
 const REPORTS_KEY = "addbuyc_reported";
 
@@ -70,9 +72,11 @@ function writeReportedMap(map: Map<string, string | null>) {
 }
 
 export function ReportButton({ targetType, targetId }: Props) {
+  const { user } = useAuth();
   const key = `${targetType}:${targetId}`;
   const [reportState, setReportState] = useState<ReportState>("loading");
   const [isOpen, setIsOpen] = useState(false);
+  const [showLoginHint, setShowLoginHint] = useState(false);
   const [reason, setReason] = useState<ReasonValue>("spam");
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -182,12 +186,49 @@ export function ReportButton({ targetType, targetId }: Props) {
     );
   }
 
+  // 未通報 - ログイン案内表示中
+  if (showLoginHint) {
+    return (
+      <div className="space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-left">
+        <p className="text-xs font-medium text-zinc-800">通報するにはログインが必要です</p>
+        <p className="text-xs text-zinc-500">ログインすると、不適切な投稿や返信を通報できます</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/signin"
+            className="rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-800"
+          >
+            ログインする
+          </Link>
+          <Link
+            href="/signup"
+            className="text-xs text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline"
+          >
+            アカウントを作成する
+          </Link>
+          <button
+            type="button"
+            onClick={() => setShowLoginHint(false)}
+            className="ml-auto text-xs text-zinc-400 transition hover:text-zinc-600"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // 未通報 - フォームが閉じている
   if (!isOpen) {
     return (
       <button
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          if (!user) {
+            setShowLoginHint(true);
+            return;
+          }
+          setIsOpen(true);
+        }}
         className="text-xs text-zinc-400 underline-offset-2 transition hover:text-zinc-600 hover:underline"
       >
         通報する
