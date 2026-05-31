@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { verifySessionToken, SESSION_COOKIE } from "@/lib/admin-session";
-import { supabase } from "@/lib/supabase/client";
+import { getAdminUserId } from "@/lib/admin-auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const VALID_STATUSES = new Set(["open", "resolved", "dismissed"]);
 
@@ -10,11 +9,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
-  const secret = process.env.ADMIN_SESSION_SECRET;
-
-  if (!secret || !token || !(await verifySessionToken(token, secret))) {
+  const adminId = await getAdminUserId();
+  if (!adminId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -51,6 +47,7 @@ export async function PATCH(
     updates.admin_note = admin_note ?? null;
   }
 
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("reports")
     .update(updates)
