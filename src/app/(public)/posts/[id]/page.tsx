@@ -20,6 +20,7 @@ import { AvatarIcon } from "@/components/AvatarIcon";
 import { PostStatusBadge } from "@/components/PostStatusBadge";
 import { ImageEditor } from "@/components/ImageEditor";
 import { LoginPrompt } from "@/components/LoginPrompt";
+import { removeOwnedPostImages } from "@/lib/storage-helpers";
 
 const VALID_CATEGORIES: Set<string> = new Set(CATEGORIES.map((c) => c.slug));
 const MAX_REPLY_IMAGES = 5;
@@ -475,6 +476,7 @@ export default function PostDetailPage() {
     );
     if (!confirmed) return;
     setDeletingPost(true);
+    const postImageUrls = resolveImageUrls(post.imageUrls, post.imageUrl);
     const { error: deleteError } = await supabase
       .from("posts")
       .update({ status: "hidden" })
@@ -485,6 +487,11 @@ export default function PostDetailPage() {
       alert("投稿の削除に失敗しました。しばらくしてから再度お試しください。");
       setDeletingPost(false);
       return;
+    }
+    if (postImageUrls.length > 0) {
+      void removeOwnedPostImages(postImageUrls, user.id).catch((err: unknown) => {
+        console.error("Storage cleanup failed (non-blocking):", err);
+      });
     }
     await refetchPosts();
     router.push("/posts");
@@ -497,6 +504,11 @@ export default function PostDetailPage() {
     );
     if (!confirmed) return;
     setDeletingReplyId(replyId);
+    const targetReply = replies.find((r) => r.id === replyId);
+    const replyImageUrls = resolveImageUrls(
+      targetReply?.imageUrls ?? [],
+      targetReply?.imageUrl ?? null,
+    );
     const { error: deleteError } = await supabase
       .from("replies")
       .update({ status: "hidden" })
@@ -507,6 +519,11 @@ export default function PostDetailPage() {
       alert("返信の削除に失敗しました。しばらくしてから再度お試しください。");
       setDeletingReplyId(null);
       return;
+    }
+    if (replyImageUrls.length > 0) {
+      void removeOwnedPostImages(replyImageUrls, user.id).catch((err: unknown) => {
+        console.error("Storage cleanup failed (non-blocking):", err);
+      });
     }
     setReplies((prev) => prev.filter((r) => r.id !== replyId));
     setDeletingReplyId(null);
@@ -524,10 +541,12 @@ export default function PostDetailPage() {
     setSubmittingReply(true);
 
     const uploadedUrls: string[] = [];
+    const replyUserId = user?.id;
+    if (!replyUserId) { setSubmittingReply(false); return; }
     for (const file of replyImageFiles) {
       try {
         const blob = await compressImage(file);
-        const fileName = `replies/${crypto.randomUUID()}.webp`;
+        const fileName = `replies/${replyUserId}/${crypto.randomUUID()}.webp`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("post-images")
           .upload(fileName, blob, { contentType: "image/webp", upsert: false });
@@ -636,7 +655,7 @@ export default function PostDetailPage() {
     for (const file of newPostImageFiles) {
       try {
         const blob = await compressImage(file);
-        const fileName = `posts/${crypto.randomUUID()}.webp`;
+        const fileName = `posts/${user.id}/${crypto.randomUUID()}.webp`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("post-images")
           .upload(fileName, blob, { contentType: "image/webp", upsert: false });
@@ -659,6 +678,9 @@ export default function PostDetailPage() {
     }
 
     const finalImageUrls = [...editPostImageUrls, ...uploadedUrls];
+    const removedPostImageUrls = resolveImageUrls(post.imageUrls, post.imageUrl).filter(
+      (u) => !editPostImageUrls.includes(u),
+    );
     const { error: updateError } = await supabase
       .from("posts")
       .update({ title, description, target_url: targetUrl, category: editCategory, image_urls: finalImageUrls, image_url: null })
@@ -672,6 +694,11 @@ export default function PostDetailPage() {
     }
     setPost((prev) => prev ? { ...prev, title, description, targetUrl, category: editCategory, imageUrls: finalImageUrls, imageUrl: null } : prev);
     await refetchPosts();
+    if (removedPostImageUrls.length > 0) {
+      void removeOwnedPostImages(removedPostImageUrls, user.id).catch((err: unknown) => {
+        console.error("Storage cleanup failed (non-blocking):", err);
+      });
+    }
     setEditingPost(false);
     setNewPostImageFiles([]);
     setNewPostImagePreviews([]);
@@ -708,7 +735,7 @@ export default function PostDetailPage() {
     for (const file of newReplyImageFiles) {
       try {
         const blob = await compressImage(file);
-        const fileName = `replies/${crypto.randomUUID()}.webp`;
+        const fileName = `replies/${user.id}/${crypto.randomUUID()}.webp`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("post-images")
           .upload(fileName, blob, { contentType: "image/webp", upsert: false });
@@ -731,6 +758,11 @@ export default function PostDetailPage() {
     }
 
     const finalImageUrls = [...editReplyImageUrls, ...uploadedUrls];
+    const targetReply = replies.find((r) => r.id === replyId);
+    const removedReplyImageUrls = resolveImageUrls(
+      targetReply?.imageUrls ?? [],
+      targetReply?.imageUrl ?? null,
+    ).filter((u) => !editReplyImageUrls.includes(u));
     const { error: updateError } = await supabase
       .from("replies")
       .update({ description: body, image_urls: finalImageUrls, image_url: null })
@@ -747,6 +779,11 @@ export default function PostDetailPage() {
         r.id === replyId ? { ...r, description: body, imageUrls: finalImageUrls, imageUrl: null } : r,
       ),
     );
+    if (removedReplyImageUrls.length > 0) {
+      void removeOwnedPostImages(removedReplyImageUrls, user.id).catch((err: unknown) => {
+        console.error("Storage cleanup failed (non-blocking):", err);
+      });
+    }
     setEditingReplyId(null);
     setNewReplyImageFiles([]);
     setNewReplyImagePreviews([]);
