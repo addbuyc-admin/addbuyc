@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase/client";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const VALID_TARGET_TYPES = new Set(["post", "reply"]);
 const VALID_REASONS = new Set([
@@ -51,6 +51,7 @@ export async function POST(request: Request) {
     );
   }
 
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("reports").insert({
     target_type,
     target_id,
@@ -98,6 +99,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Invalid token" }, { status: 400 });
   }
 
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("cancel_report_by_token", {
     p_target_type: target_type,
     p_target_id: target_id,
