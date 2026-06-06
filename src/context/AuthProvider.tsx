@@ -16,6 +16,7 @@ type AuthContextValue = {
   session: Session | null;
   loading: boolean;
   displayName: string | null;
+  isAdmin: boolean;
   refreshDisplayName: () => Promise<void>;
 };
 
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextValue>({
   session: null,
   loading: true,
   displayName: null,
+  isAdmin: false,
   refreshDisplayName: async () => {},
 });
 
@@ -32,14 +34,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchDisplayName = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("display_name")
+      .select("display_name, role")
       .eq("id", userId)
       .maybeSingle();
     setDisplayName(data?.display_name ?? null);
+    setIsAdmin(data?.role === "admin");
   }, []);
 
   const refreshDisplayName = useCallback(async () => {
@@ -67,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void fetchDisplayName(session.user.id);
       } else {
         setDisplayName(null);
+        setIsAdmin(false);
       }
       setLoading(false);
     });
@@ -75,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchDisplayName]);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, displayName, refreshDisplayName }}>
+    <AuthContext.Provider value={{ user, session, loading, displayName, isAdmin, refreshDisplayName }}>
       {children}
     </AuthContext.Provider>
   );

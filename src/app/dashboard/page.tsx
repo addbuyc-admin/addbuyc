@@ -323,14 +323,33 @@ export default async function DashboardPage({ searchParams }: Props) {
             Dashboard
           </h1>
         </div>
-        <form action="/api/admin/logout" method="POST">
-          <button
-            type="submit"
-            className="rounded-full border border-zinc-200 bg-white px-5 py-2 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50"
-          >
-            ログアウト
-          </button>
-        </form>
+        <div className="flex items-center gap-3">
+          <Link href="/" aria-label="Home" className="text-zinc-600 transition hover:text-zinc-900">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+          </Link>
+          <form action="/api/admin/logout" method="POST">
+            <button
+              type="submit"
+              className="rounded-full border border-zinc-200 bg-white px-5 py-2 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50"
+            >
+              ログアウト
+            </button>
+          </form>
+        </div>
       </div>
 
       {/* メインタブ */}
