@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Fragment } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
 import { ToggleStatusButton } from "@/components/ToggleStatusButton";
 import { ToggleBestAnswerButton } from "@/components/ToggleBestAnswerButton";
@@ -71,7 +71,9 @@ type UserStatRow = {
 };
 
 
-async function getPosts(): Promise<PostRow[]> {
+type SupabaseClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+
+async function getPosts(supabase: SupabaseClient): Promise<PostRow[]> {
   const { data, error } = await supabase
     .from("posts")
     .select(
@@ -85,7 +87,7 @@ async function getPosts(): Promise<PostRow[]> {
   return (data ?? []) as PostRow[];
 }
 
-async function getReports(): Promise<ReportRow[]> {
+async function getReports(supabase: SupabaseClient): Promise<ReportRow[]> {
   const { data, error } = await supabase
     .from("reports")
     .select(
@@ -99,7 +101,7 @@ async function getReports(): Promise<ReportRow[]> {
   return (data ?? []) as ReportRow[];
 }
 
-async function getReplies(): Promise<ReplyRow[]> {
+async function getReplies(supabase: SupabaseClient): Promise<ReplyRow[]> {
   const { data, error } = await supabase
     .from("replies")
     .select("id, post_id, description, image_url, is_best_answer, likes, created_at, status")
@@ -111,7 +113,7 @@ async function getReplies(): Promise<ReplyRow[]> {
   return (data ?? []) as ReplyRow[];
 }
 
-async function getUserStats(): Promise<UserStatRow[]> {
+async function getUserStats(supabase: SupabaseClient): Promise<UserStatRow[]> {
   const { data, error } = await supabase
     .from("user_stats")
     .select("user_id, display_name, post_count, reply_count, total_reply_likes, best_answer_count")
@@ -263,11 +265,12 @@ export default async function DashboardPage({ searchParams }: Props) {
   if (replyFilter !== "all") currentParams.replyStatus = replyFilter;
   if (reportFilter !== "all") currentParams.reportStatus = reportFilter;
 
+  const supabase = await createSupabaseServerClient();
   const [posts, replies, reports, rawUserStats] = await Promise.all([
-    getPosts(),
-    getReplies(),
-    getReports(),
-    getUserStats(),
+    getPosts(supabase),
+    getReplies(supabase),
+    getReports(supabase),
+    getUserStats(supabase),
   ]);
 
   const userStats = [...rawUserStats].sort((a, b) => {
