@@ -52,6 +52,7 @@ export default function SignInPage() {
 
       <form
         onSubmit={handleSubmit}
+        autoComplete="on"
         className="flex flex-col gap-5 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
       >
         <div className="space-y-2">
@@ -61,6 +62,7 @@ export default function SignInPage() {
           <input
             id="email"
             type="email"
+            name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -79,6 +81,7 @@ export default function SignInPage() {
           <input
             id="password"
             type="password"
+            name="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
