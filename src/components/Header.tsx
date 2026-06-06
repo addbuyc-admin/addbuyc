@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase/browser";
 import { NotificationBell } from "@/components/NotificationBell";
 
 export function Header() {
-  const { user, loading, displayName } = useAuth();
+  const { user, loading, displayName, isAdmin } = useAuth();
   const router = useRouter();
 
   async function handleSignOut() {
@@ -47,6 +47,31 @@ export function Header() {
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
           </Link>
+          {!loading && user && isAdmin && (
+            <Link
+              href="/dashboard"
+              aria-label="Dashboard"
+              className="text-zinc-600 transition hover:text-zinc-900"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="7" height="7" rx="1" />
+              </svg>
+            </Link>
+          )}
           {!loading &&
             (user ? (
               <>
