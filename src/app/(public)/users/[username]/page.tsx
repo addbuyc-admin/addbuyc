@@ -341,7 +341,7 @@ export default function UserProfilePage() {
         {[
           { label: "投稿数", value: stats?.post_count ?? 0 },
           { label: "返信数", value: stats?.reply_count ?? 0 },
-          { label: "返信いいね", value: stats?.total_reply_likes ?? 0 },
+          { label: "返信いいね数", value: stats?.total_reply_likes ?? 0 },
           { label: "ベストアンサー", value: stats?.best_answer_count ?? 0 },
         ].map(({ label, value }) => (
           <div

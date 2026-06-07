@@ -10,8 +10,8 @@ const MAX_NOTIFICATIONS = 10;
 
 const NOTIFICATION_LABEL: Record<string, string> = {
   post_reply:           "投稿に返信がありました",
-  post_like:            "投稿にLikeされました",
-  reply_like:           "返信にLikeされました",
+  post_like:            "投稿に「おなじ気持ち」が届きました",
+  reply_like:           "返信にいいねされました",
   best_answer:          "返信がベストアンサーに選ばれました",
   user_follow:          "フォローされました",
   followed_post_reply:  "フォロー中の投稿に返信がありました",

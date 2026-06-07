@@ -26,17 +26,17 @@ export const ADVISOR_RANK_CONDITIONS = [
   {
     label: "認定アドバイザー",
     className: "bg-violet-100 text-violet-700",
-    condition: "ベストアンサー5件以上 かつ 返信Like合計50以上",
+    condition: "ベストアンサー5件以上 かつ 返信いいね数50以上",
   },
   {
     label: "ゴールドアドバイザー",
     className: "bg-amber-100 text-amber-700",
-    condition: "ベストアンサー3件以上 かつ 返信Like合計30以上",
+    condition: "ベストアンサー3件以上 かつ 返信いいね数30以上",
   },
   {
     label: "シルバーアドバイザー",
     className: "bg-slate-100 text-slate-600",
-    condition: "返信10件以上 かつ 返信Like合計10以上",
+    condition: "返信10件以上 かつ 返信いいね数10以上",
   },
   {
     label: "ブロンズアドバイザー",
