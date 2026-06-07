@@ -3,9 +3,9 @@ import type { CategorySlug } from "@/lib/categories";
 export type Notification = {
   id: number;
   user_id: string;
-  type: "post_reply";
+  type: "post_reply" | "post_like" | "reply_like" | "best_answer";
   post_id: number;
-  reply_id: number;
+  reply_id: number | null;
   actor_user_id: string | null;
   read_at: string | null;
   created_at: string;
