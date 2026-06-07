@@ -16,6 +16,8 @@ type AuthContextValue = {
   session: Session | null;
   loading: boolean;
   displayName: string | null;
+  avatarUrl: string | null;
+  username: string | null;
   isAdmin: boolean;
   refreshDisplayName: () => Promise<void>;
 };
@@ -25,6 +27,8 @@ const AuthContext = createContext<AuthContextValue>({
   session: null,
   loading: true,
   displayName: null,
+  avatarUrl: null,
+  username: null,
   isAdmin: false,
   refreshDisplayName: async () => {},
 });
@@ -34,15 +38,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchDisplayName = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("display_name, role")
+      .select("display_name, role, avatar_url, username")
       .eq("id", userId)
       .maybeSingle();
     setDisplayName(data?.display_name ?? null);
+    setAvatarUrl(data?.avatar_url ?? null);
+    setUsername(data?.username ?? null);
     setIsAdmin(data?.role === "admin");
   }, []);
 
@@ -71,6 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void fetchDisplayName(session.user.id);
       } else {
         setDisplayName(null);
+        setAvatarUrl(null);
+        setUsername(null);
         setIsAdmin(false);
       }
       setLoading(false);
@@ -80,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchDisplayName]);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, displayName, isAdmin, refreshDisplayName }}>
+    <AuthContext.Provider value={{ user, session, loading, displayName, avatarUrl, username, isAdmin, refreshDisplayName }}>
       {children}
     </AuthContext.Provider>
   );
