@@ -56,7 +56,7 @@ export default function AdvisorRanksPage() {
             </li>
             <li className="flex gap-2">
               <span className="mt-0.5 shrink-0 text-zinc-400">•</span>
-              Likeをした人の一覧は表示されません。
+              いいね・共感した人の一覧は表示されません。
             </li>
           </ul>
         </div>

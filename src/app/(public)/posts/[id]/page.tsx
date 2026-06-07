@@ -1231,9 +1231,9 @@ export default function PostDetailPage() {
                               ? "border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:bg-rose-100"
                               : "border-zinc-200 bg-zinc-50 text-zinc-800 hover:border-zinc-300 hover:bg-white disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
                           }`}
-                          aria-label={`Like post: ${post.title}`}
+                          aria-label={`おなじ気持ち: ${post.title}`}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill={isPostLiked && user?.id ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
                           <span>{post.likes}</span>
                         </button>
                       );
@@ -1241,7 +1241,7 @@ export default function PostDetailPage() {
                   </div>
                   {showLikeLoginHint && !user?.id && (
                     <p className="mt-1.5 text-right text-xs text-zinc-500">
-                      Likeするには{" "}
+                      「おなじ気持ち」するには{" "}
                       <Link href="/signin" className="underline underline-offset-2 hover:text-zinc-700">
                         ログイン
                       </Link>
@@ -1372,7 +1372,7 @@ export default function PostDetailPage() {
               <div className="mt-4">
                 <LoginPrompt
                   message="返信するにはログインが必要です"
-                  description="ログインすると、返信へのLikeやベストアンサー通知も受け取れます"
+                  description="ログインすると、返信へのいいねやベストアンサー通知も受け取れます"
                 />
               </div>
             ) : (
@@ -1577,7 +1577,7 @@ export default function PostDetailPage() {
                                       ? "border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:bg-rose-100"
                                       : "border-zinc-200 bg-zinc-50 text-zinc-800 hover:border-zinc-300 hover:bg-white disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
                                   }`}
-                                  aria-label="Like reply"
+                                  aria-label="いいね"
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
                                   <span>{reply.likes}</span>
@@ -1587,7 +1587,7 @@ export default function PostDetailPage() {
                           </div>
                           {likeLoginHintReplyId === reply.id && !user?.id && (
                             <p className="mt-1.5 text-right text-xs text-zinc-500">
-                              Likeするには{" "}
+                              いいねするには{" "}
                               <Link href="/signin" className="underline underline-offset-2 hover:text-zinc-700">
                                 ログイン
                               </Link>
