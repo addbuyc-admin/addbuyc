@@ -9,10 +9,12 @@ import type { Notification } from "@/lib/types";
 const MAX_NOTIFICATIONS = 10;
 
 const NOTIFICATION_LABEL: Record<string, string> = {
-  post_reply:  "投稿に返信がありました",
-  post_like:   "投稿にLikeされました",
-  reply_like:  "返信にLikeされました",
-  best_answer: "返信がベストアンサーに選ばれました",
+  post_reply:           "投稿に返信がありました",
+  post_like:            "投稿にLikeされました",
+  reply_like:           "返信にLikeされました",
+  best_answer:          "返信がベストアンサーに選ばれました",
+  user_follow:          "フォローされました",
+  followed_post_reply:  "フォロー中の投稿に返信がありました",
 };
 
 export function NotificationBell({ userId }: { userId: string }) {
@@ -27,11 +29,17 @@ export function NotificationBell({ userId }: { userId: string }) {
   const fetchNotifications = useCallback(async () => {
     const { data } = await supabase
       .from("notifications")
-      .select("id, user_id, type, post_id, reply_id, actor_user_id, read_at, created_at")
+      .select("id, user_id, type, post_id, reply_id, actor_user_id, read_at, created_at, actor_profile:profiles!actor_user_id(username, display_name, avatar_url)")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(MAX_NOTIFICATIONS);
-    if (data) setNotifications(data as Notification[]);
+    // Supabase の JOIN は配列で返るため actor_profile を先頭要素に正規化
+    if (data) {
+      const normalized = (data as unknown as Array<Omit<Notification, "actor_profile"> & { actor_profile: Notification["actor_profile"][] | null }>).map(
+        (n): Notification => ({ ...n, actor_profile: n.actor_profile?.[0] ?? null }),
+      );
+      setNotifications(normalized);
+    }
   }, [userId]);
 
   // 初回フェッチ
@@ -58,12 +66,9 @@ export function NotificationBell({ userId }: { userId: string }) {
           table: "notifications",
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
-          const incoming = payload.new as Notification;
-          setNotifications((prev) => {
-            const merged = [incoming, ...prev];
-            return merged.slice(0, MAX_NOTIFICATIONS);
-          });
+        () => {
+          // actor_profile JOIN を含む完全なデータで更新するため再フェッチ
+          void fetchNotifications();
         },
       )
       .subscribe();
@@ -71,7 +76,7 @@ export function NotificationBell({ userId }: { userId: string }) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, fetchNotifications]);
 
   // ドロップダウン外クリックで閉じる
   useEffect(() => {
@@ -85,9 +90,10 @@ export function NotificationBell({ userId }: { userId: string }) {
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [open]);
 
-  // 通知クリック：既読化 + 投稿詳細へ遷移
+  // 通知クリック：既読化 + 遷移
   async function handleClickNotification(notification: Notification) {
     setOpen(false);
+    // 既読化（type によらず必ず実行）
     if (notification.read_at === null) {
       const now = new Date().toISOString();
       setNotifications((prev) =>
@@ -98,8 +104,26 @@ export function NotificationBell({ userId }: { userId: string }) {
         .update({ read_at: now })
         .eq("id", notification.id);
     }
+    // user_follow → フォローしたユーザーの公開プロフィールへ
+    if (notification.type === "user_follow") {
+      // JOIN で取得できていればそのまま使用
+      let username = notification.actor_profile?.username ?? null;
+      // JOIN が取得できていない場合（FK未設定等）は actor_user_id から直接 lookup
+      if (!username && notification.actor_user_id) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", notification.actor_user_id)
+          .maybeSingle();
+        username = (data as { username: string | null } | null)?.username ?? null;
+      }
+      if (username) router.push(`/users/${username}`);
+      return;
+    }
+    // その他 → 投稿詳細へ（post_id null ガード）
+    if (notification.post_id == null) return;
     const hash = notification.reply_id != null ? `#reply-${notification.reply_id}` : "";
-  router.push(`/posts/${notification.post_id}${hash}`);
+    router.push(`/posts/${notification.post_id}${hash}`);
   }
 
   // 行の「既読にする」ボタン：遷移なし
