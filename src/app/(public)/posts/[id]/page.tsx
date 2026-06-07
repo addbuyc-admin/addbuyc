@@ -233,6 +233,9 @@ export default function PostDetailPage() {
   // フォロー状態
   const [followedUserIds, setFollowedUserIds] = useState<Set<string>>(new Set());
   const [followActionUserId, setFollowActionUserId] = useState<string | null>(null);
+  // 投稿フォロー
+  const [isPostFollowing, setIsPostFollowing] = useState(false);
+  const [postFollowLoading, setPostFollowLoading] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -370,6 +373,21 @@ export default function PostDetailPage() {
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.id, userStats.size]);
+
+  // 投稿フォロー状態チェック
+  useEffect(() => {
+    if (authLoading || !user?.id || !post || !postUserId || user.id === postUserId) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("post_follows")
+        .select("post_id")
+        .eq("user_id", user.id)
+        .eq("post_id", toDbId(String(post.id)))
+        .maybeSingle();
+      setIsPostFollowing(!!data);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.id, post?.id, postUserId]);
 
   // 通知リンク（#reply-{id}）からの遷移時にスクロール＋ハイライト
   useEffect(() => {
@@ -976,6 +994,25 @@ export default function PostDetailPage() {
     setFollowActionUserId(null);
   }
 
+  async function handlePostFollowToggle() {
+    if (!user?.id || !post || postFollowLoading) return;
+    setPostFollowLoading(true);
+    if (isPostFollowing) {
+      const { error } = await supabase
+        .from("post_follows")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("post_id", toDbId(String(post.id)));
+      if (!error) setIsPostFollowing(false);
+    } else {
+      const { error } = await supabase
+        .from("post_follows")
+        .insert({ user_id: user.id, post_id: toDbId(String(post.id)) });
+      if (!error) setIsPostFollowing(true);
+    }
+    setPostFollowLoading(false);
+  }
+
   function handleRemoveExistingPostImage(index: number) {
     setEditPostImageUrls((prev) => prev.filter((_, i) => i !== index));
   }
@@ -1299,7 +1336,27 @@ export default function PostDetailPage() {
                   <span />
                 )}
                 {!(user?.id && postUserId && user.id === postUserId) && (
-                  <ReportButton targetType="post" targetId={String(post.id)} />
+                  <div className="flex items-center gap-3">
+                    {!authLoading && user?.id && postUserId && user.id !== postUserId && (
+                      <button
+                        type="button"
+                        onClick={handlePostFollowToggle}
+                        disabled={postFollowLoading}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
+                          isPostFollowing
+                            ? "border-zinc-200 bg-white text-zinc-500 hover:border-red-200 hover:text-red-500"
+                            : "border-zinc-800 bg-zinc-800 text-white hover:bg-zinc-600"
+                        }`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill={isPostFollowing ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                        </svg>
+                        {postFollowLoading ? "…" : isPostFollowing ? "フォロー中" : "この投稿をフォロー"}
+                      </button>
+                    )}
+                    <ReportButton targetType="post" targetId={String(post.id)} />
+                  </div>
                 )}
               </div>
             )}
