@@ -110,7 +110,7 @@ function PostListWithFilter() {
       </form>
 
       {/* カテゴリ絞り込み（横スクロール） */}
-      <div className="mb-4 overflow-x-auto">
+      <div className="mb-4 max-w-full overflow-x-auto">
         <div className="flex min-w-max gap-2 pb-1">
           <Link
             href={buildHref({ q, status: activeStatus, sort: activeSort })}
