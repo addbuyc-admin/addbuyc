@@ -98,7 +98,8 @@ export function NotificationBell({ userId }: { userId: string }) {
         .update({ read_at: now })
         .eq("id", notification.id);
     }
-    router.push(`/posts/${notification.post_id}`);
+    const hash = notification.reply_id != null ? `#reply-${notification.reply_id}` : "";
+  router.push(`/posts/${notification.post_id}${hash}`);
   }
 
   // 行の「既読にする」ボタン：遷移なし

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { formatDateTime } from "@/lib/format";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePosts } from "@/context/PostsProvider";
 import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase/client";
@@ -221,6 +221,9 @@ export default function PostDetailPage() {
   const [editReplyImageUrls, setEditReplyImageUrls] = useState<string[]>([]);
   const [newReplyImageFiles, setNewReplyImageFiles] = useState<File[]>([]);
   const [newReplyImagePreviews, setNewReplyImagePreviews] = useState<string[]>([]);
+  // 通知からのリンクで特定返信をハイライト表示する
+  const [highlightReplyId, setHighlightReplyId] = useState<string | null>(null);
+  const didScrollToReply = useRef(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -342,6 +345,24 @@ export default function PostDetailPage() {
       setLoading(false);
     })();
   }, [params.id]);
+
+  // 通知リンク（#reply-{id}）からの遷移時にスクロール＋ハイライト
+  useEffect(() => {
+    if (didScrollToReply.current) return;
+    if (replies.length === 0) return;
+    const hash = window.location.hash;
+    if (!hash.startsWith("#reply-")) return;
+    const replyId = hash.slice("#reply-".length);
+    didScrollToReply.current = true;
+    const scrollTimer = setTimeout(() => {
+      const el = document.getElementById(`reply-${replyId}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightReplyId(replyId);
+      setTimeout(() => setHighlightReplyId(null), 3000);
+    }, 100);
+    return () => clearTimeout(scrollTimer);
+  }, [replies]);
 
   async function handleLikePost() {
     if (!post) return;
@@ -1311,11 +1332,12 @@ export default function PostDetailPage() {
                 {replies.map((reply) => (
                   <li
                     key={reply.id}
-                    className={`rounded-2xl border bg-white p-4 shadow-sm ${
-                      reply.isBestAnswer
-                        ? "border-amber-200"
-                        : "border-zinc-200"
-                    }`}
+                    id={`reply-${reply.id}`}
+                    className={[
+                      "scroll-mt-20 rounded-2xl border p-4 shadow-sm transition-colors duration-700",
+                      reply.isBestAnswer ? "border-amber-200" : "border-zinc-200",
+                      highlightReplyId === reply.id ? "bg-sky-50" : "bg-white",
+                    ].join(" ")}
                   >
                     <div className={`border-l-2 pl-4 ${reply.isBestAnswer ? "border-amber-300" : "border-zinc-200"}`}>
                       {reply.isBestAnswer && (
