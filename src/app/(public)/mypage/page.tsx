@@ -55,6 +55,17 @@ type FollowingUser = {
   avatar_url: string | null;
 };
 
+type FollowedPost = {
+  post_id: number;
+  created_at: string;
+  posts: {
+    id: number;
+    title: string;
+    category: string;
+    status: string;
+  } | null;
+};
+
 export default function MyPage() {
   const { user, loading, refreshDisplayName } = useAuth();
   const [displayName, setDisplayName] = useState("");
@@ -89,6 +100,10 @@ export default function MyPage() {
   // 現在の画面でフォロー解除したユーザーのID（行を残しつつ再フォロー可能にする）
   const [unfollowedIds, setUnfollowedIds] = useState<Set<string>>(new Set());
   const [followActionId, setFollowActionId] = useState<string | null>(null);
+  // 投稿フォロー
+  const [followedPosts, setFollowedPosts] = useState<FollowedPost[]>([]);
+  const [unfollowedPostIds, setUnfollowedPostIds] = useState<Set<number>>(new Set());
+  const [postFollowActionId, setPostFollowActionId] = useState<number | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -146,6 +161,14 @@ export default function MyPage() {
           .filter((p): p is FollowingUser => p != null);
         setFollowingUsers(ordered);
       }
+
+      // フォロー中の投稿を取得
+      const { data: followedPostsData } = await supabase
+        .from("post_follows")
+        .select("post_id, created_at, posts(id, title, category, status)")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      setFollowedPosts((followedPostsData ?? []) as unknown as FollowedPost[]);
 
       setFetching(false);
     })();
@@ -711,6 +734,101 @@ export default function MyPage() {
                             setUnfollowedIds((prev) => new Set([...prev, fu.id]));
                           }
                           setFollowActionId(null);
+                        }}
+                        className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      >
+                        {isLoading ? "処理中…" : "フォロー解除"}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {/* フォロー中の投稿 */}
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-zinc-900">フォロー中の投稿</h2>
+          {fetching ? (
+            <div className="mt-4 h-24 animate-pulse rounded-xl bg-zinc-100" />
+          ) : followedPosts.length === 0 ? (
+            <p className="mt-4 text-sm text-zinc-400">フォロー中の投稿はありません</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-zinc-100">
+              {followedPosts.map((fp) => {
+                const postData = fp.posts;
+                const isUnfollowed = unfollowedPostIds.has(fp.post_id);
+                const isLoading = postFollowActionId === fp.post_id;
+                const isHidden = postData?.status === "hidden";
+                return (
+                  <li key={fp.post_id} className="flex items-start justify-between gap-3 py-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {isHidden ? (
+                          <span className="text-sm font-medium text-zinc-400 line-through">
+                            {postData?.title ?? "（投稿が見つかりません）"}
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/posts/${fp.post_id}`}
+                            className="text-sm font-medium text-zinc-900 underline-offset-2 transition hover:text-zinc-600 hover:underline"
+                          >
+                            {postData?.title ?? "（投稿が見つかりません）"}
+                          </Link>
+                        )}
+                        {isHidden && (
+                          <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500">
+                            非表示
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                        {postData?.category && (
+                          <CategoryBadge category={postData.category as CategorySlug} />
+                        )}
+                        <time dateTime={fp.created_at}>{formatDateTime(fp.created_at)}</time>
+                      </div>
+                    </div>
+                    {isUnfollowed ? (
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={async () => {
+                          if (!user) return;
+                          setPostFollowActionId(fp.post_id);
+                          const { error } = await supabase
+                            .from("post_follows")
+                            .insert({ user_id: user.id, post_id: fp.post_id });
+                          if (!error) {
+                            setUnfollowedPostIds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(fp.post_id);
+                              return next;
+                            });
+                          }
+                          setPostFollowActionId(null);
+                        }}
+                        className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50"
+                      >
+                        {isLoading ? "処理中…" : "フォローする"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={async () => {
+                          if (!user) return;
+                          setPostFollowActionId(fp.post_id);
+                          const { error } = await supabase
+                            .from("post_follows")
+                            .delete()
+                            .eq("user_id", user.id)
+                            .eq("post_id", fp.post_id);
+                          if (!error) {
+                            setUnfollowedPostIds((prev) => new Set([...prev, fp.post_id]));
+                          }
+                          setPostFollowActionId(null);
                         }}
                         className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                       >
