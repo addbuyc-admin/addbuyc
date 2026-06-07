@@ -48,6 +48,13 @@ type MyStats = {
   best_answer_count: number;
 };
 
+type FollowingUser = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+};
+
 export default function MyPage() {
   const { user, loading, refreshDisplayName } = useAuth();
   const [displayName, setDisplayName] = useState("");
@@ -78,6 +85,10 @@ export default function MyPage() {
   const [myPosts, setMyPosts] = useState<MyPost[]>([]);
   const [myReplies, setMyReplies] = useState<MyReply[]>([]);
   const [myStats, setMyStats] = useState<MyStats | null>(null);
+  const [followingUsers, setFollowingUsers] = useState<FollowingUser[]>([]);
+  // 現在の画面でフォロー解除したユーザーのID（行を残しつつ再フォロー可能にする）
+  const [unfollowedIds, setUnfollowedIds] = useState<Set<string>>(new Set());
+  const [followActionId, setFollowActionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -117,6 +128,25 @@ export default function MyPage() {
       setMyPosts((postsResult.data ?? []) as MyPost[]);
       setMyReplies((repliesResult.data ?? []) as unknown as MyReply[]);
       setMyStats(statsResult.data as MyStats | null);
+
+      // フォロー中ユーザーを取得
+      const { data: followingRows } = await supabase
+        .from("user_follows")
+        .select("following_id")
+        .eq("follower_id", user.id)
+        .order("created_at", { ascending: false });
+      const followingIds = (followingRows ?? []).map((r) => r.following_id);
+      if (followingIds.length > 0) {
+        const { data: followingProfilesData } = await supabase
+          .from("profiles")
+          .select("id, username, display_name, avatar_url")
+          .in("id", followingIds);
+        const ordered = followingIds
+          .map((id) => (followingProfilesData ?? []).find((p) => p.id === id))
+          .filter((p): p is FollowingUser => p != null);
+        setFollowingUsers(ordered);
+      }
+
       setFetching(false);
     })();
   }, [user, loading]);
@@ -609,6 +639,88 @@ export default function MyPage() {
                 {saving ? "保存中…" : "保存する"}
               </button>
             </div>
+          )}
+        </div>
+
+        {/* フォロー中ユーザー一覧 */}
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-zinc-900">フォロー中</h2>
+          {fetching ? (
+            <div className="mt-4 h-24 animate-pulse rounded-xl bg-zinc-100" />
+          ) : followingUsers.length === 0 ? (
+            <p className="mt-4 text-sm text-zinc-400">フォロー中のユーザーはいません</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-zinc-100">
+              {followingUsers.map((fu) => {
+                const isUnfollowed = unfollowedIds.has(fu.id);
+                const isLoading = followActionId === fu.id;
+                return (
+                  <li key={fu.id} className="flex items-center justify-between gap-3 py-3">
+                    <Link
+                      href={fu.username ? `/users/${fu.username}` : "#"}
+                      className="flex min-w-0 items-center gap-3 transition hover:opacity-80"
+                    >
+                      <AvatarIcon avatarUrl={fu.avatar_url} name={fu.display_name ?? fu.username ?? "?"} size={36} />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-zinc-900">
+                          {fu.display_name ?? fu.username ?? "—"}
+                        </p>
+                        {fu.username && (
+                          <p className="text-xs text-zinc-500">@{fu.username}</p>
+                        )}
+                      </div>
+                    </Link>
+                    {isUnfollowed ? (
+                      // 解除済み → 再フォローボタン
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={async () => {
+                          if (!user) return;
+                          setFollowActionId(fu.id);
+                          const { error } = await supabase
+                            .from("user_follows")
+                            .insert({ follower_id: user.id, following_id: fu.id });
+                          if (!error) {
+                            setUnfollowedIds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(fu.id);
+                              return next;
+                            });
+                          }
+                          setFollowActionId(null);
+                        }}
+                        className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50"
+                      >
+                        {isLoading ? "処理中…" : "フォローする"}
+                      </button>
+                    ) : (
+                      // フォロー中 → 解除ボタン
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={async () => {
+                          if (!user) return;
+                          setFollowActionId(fu.id);
+                          const { error } = await supabase
+                            .from("user_follows")
+                            .delete()
+                            .eq("follower_id", user.id)
+                            .eq("following_id", fu.id);
+                          if (!error) {
+                            setUnfollowedIds((prev) => new Set([...prev, fu.id]));
+                          }
+                          setFollowActionId(null);
+                        }}
+                        className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      >
+                        {isLoading ? "処理中…" : "フォロー解除"}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase/client";
 import { formatDateTime } from "@/lib/format";
 import { getAdvisorRank } from "@/lib/advisor-rank";
@@ -16,6 +17,13 @@ function truncate(text: string, len = REPLY_EXCERPT_LEN): string {
   const single = text.replace(/\r?\n/g, " ");
   return single.length > len ? single.slice(0, len) + "…" : single;
 }
+
+type FollowUser = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+};
 
 type Profile = {
   id: string;
@@ -51,12 +59,25 @@ export default function UserProfilePage() {
   const params = useParams();
   const username = params.username as string;
 
+  const { user: currentUser, loading: authLoading } = useAuth();
+
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [replies, setReplies] = useState<PublicReply[]>([]);
   const [posts, setPosts] = useState<PublicPost[]>([]);
+
+  // フォロー関連
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [followersList, setFollowersList] = useState<FollowUser[]>([]);
+  const [followingList, setFollowingList] = useState<FollowUser[]>([]);
+  const [followListLoading, setFollowListLoading] = useState(false);
 
   useEffect(() => {
     if (!username) return;
@@ -76,7 +97,7 @@ export default function UserProfilePage() {
       const profileData = profileRes.data as Profile;
       setProfile(profileData);
 
-      const [statsRes, repliesRes, postsRes] = await Promise.all([
+      const [statsRes, repliesRes, postsRes, followerRes, followingRes] = await Promise.all([
         supabase
           .from("user_stats")
           .select("post_count, reply_count, total_reply_likes, best_answer_count")
@@ -96,7 +117,18 @@ export default function UserProfilePage() {
           .eq("status", "published")
           .order("created_at", { ascending: false })
           .limit(10),
+        supabase
+          .from("user_follows")
+          .select("*", { count: "exact", head: true })
+          .eq("following_id", profileData.id),
+        supabase
+          .from("user_follows")
+          .select("*", { count: "exact", head: true })
+          .eq("follower_id", profileData.id),
       ]);
+
+      setFollowerCount(followerRes.count ?? 0);
+      setFollowingCount(followingRes.count ?? 0);
 
       setStats(statsRes.data as Stats | null);
 
@@ -129,6 +161,95 @@ export default function UserProfilePage() {
     })();
   }, [username]);
 
+  // ログイン状態が確定したらフォロー済みかチェック
+  useEffect(() => {
+    if (authLoading || !profile || !currentUser || currentUser.id === profile.id) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("user_follows")
+        .select("follower_id")
+        .eq("follower_id", currentUser.id)
+        .eq("following_id", profile.id)
+        .maybeSingle();
+      setIsFollowing(!!data);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, currentUser?.id, profile?.id]);
+
+  async function handleFollow() {
+    if (!currentUser || !profile || followLoading) return;
+    setFollowLoading(true);
+    const { error } = await supabase
+      .from("user_follows")
+      .insert({ follower_id: currentUser.id, following_id: profile.id });
+    if (!error) {
+      setIsFollowing(true);
+      setFollowerCount((n) => n + 1);
+    }
+    setFollowLoading(false);
+  }
+
+  async function handleUnfollowProfile() {
+    if (!currentUser || !profile || followLoading) return;
+    setFollowLoading(true);
+    const { error } = await supabase
+      .from("user_follows")
+      .delete()
+      .eq("follower_id", currentUser.id)
+      .eq("following_id", profile.id);
+    if (!error) {
+      setIsFollowing(false);
+      setFollowerCount((n) => Math.max(0, n - 1));
+    }
+    setFollowLoading(false);
+  }
+
+  async function handleOpenFollowers() {
+    setShowFollowersModal(true);
+    setFollowListLoading(true);
+    if (!profile) return;
+    const { data: rows } = await supabase
+      .from("user_follows")
+      .select("follower_id")
+      .eq("following_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    const ids = (rows ?? []).map((r) => r.follower_id);
+    if (ids.length > 0) {
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url")
+        .in("id", ids);
+      setFollowersList((profilesData ?? []) as FollowUser[]);
+    } else {
+      setFollowersList([]);
+    }
+    setFollowListLoading(false);
+  }
+
+  async function handleOpenFollowing() {
+    setShowFollowingModal(true);
+    setFollowListLoading(true);
+    if (!profile) return;
+    const { data: rows } = await supabase
+      .from("user_follows")
+      .select("following_id")
+      .eq("follower_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    const ids = (rows ?? []).map((r) => r.following_id);
+    if (ids.length > 0) {
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url")
+        .in("id", ids);
+      setFollowingList((profilesData ?? []) as FollowUser[]);
+    } else {
+      setFollowingList([]);
+    }
+    setFollowListLoading(false);
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-12">
@@ -149,6 +270,7 @@ export default function UserProfilePage() {
   const rank = stats ? getAdvisorRank(stats) : null;
 
   return (
+    <>
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
       <div className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -161,7 +283,30 @@ export default function UserProfilePage() {
               <p className="mt-0.5 text-sm text-zinc-500">@{profile.username}</p>
             </div>
           </div>
-          {rank && <AdvisorRankBadge rank={rank} />}
+          <div className="flex flex-wrap items-center gap-2">
+            {rank && <AdvisorRankBadge rank={rank} />}
+            {!authLoading && currentUser && currentUser.id !== profile.id && (
+              isFollowing ? (
+                <button
+                  type="button"
+                  onClick={handleUnfollowProfile}
+                  disabled={followLoading}
+                  className="rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-sm font-medium text-zinc-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                >
+                  フォロー解除
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleFollow}
+                  disabled={followLoading}
+                  className="rounded-full bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-700 disabled:opacity-50"
+                >
+                  フォローする
+                </button>
+              )
+            )}
+          </div>
         </div>
         <p className="text-xs text-zinc-400">
           登録日:{" "}
@@ -171,6 +316,25 @@ export default function UserProfilePage() {
             timeZone: "Asia/Tokyo",
           })}
         </p>
+        {/* フォロワー / フォロー中 */}
+        <div className="flex items-center gap-6 pt-1">
+          <button
+            type="button"
+            onClick={handleOpenFollowers}
+            className="group text-left"
+          >
+            <span className="text-base font-semibold text-zinc-900">{followerCount}</span>
+            <span className="ml-1.5 text-sm text-zinc-500 group-hover:text-zinc-700">フォロワー</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenFollowing}
+            className="group text-left"
+          >
+            <span className="text-base font-semibold text-zinc-900">{followingCount}</span>
+            <span className="ml-1.5 text-sm text-zinc-500 group-hover:text-zinc-700">フォロー中</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-3">
@@ -254,5 +418,94 @@ export default function UserProfilePage() {
         )}
       </section>
     </div>
+    {/* フォロワーモーダル */}
+    {showFollowersModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        onClick={() => { setShowFollowersModal(false); setFollowersList([]); }}
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl bg-white shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
+            <h2 className="text-sm font-semibold text-zinc-900">フォロワー</h2>
+            <button
+              type="button"
+              onClick={() => { setShowFollowersModal(false); setFollowersList([]); }}
+              className="text-sm text-zinc-400 transition hover:text-zinc-700"
+            >
+              ✕
+            </button>
+          </div>
+          <ul className="max-h-96 divide-y divide-zinc-100 overflow-y-auto">
+            {followListLoading ? (
+              <li className="px-5 py-6 text-center text-sm text-zinc-400">読み込み中…</li>
+            ) : followersList.length === 0 ? (
+              <li className="px-5 py-6 text-center text-sm text-zinc-400">フォロワーはいません</li>
+            ) : followersList.map((u) => (
+              <li key={u.id}>
+                <Link
+                  href={u.username ? `/users/${u.username}` : "#"}
+                  onClick={() => { setShowFollowersModal(false); setFollowersList([]); }}
+                  className="flex items-center gap-3 px-5 py-3 transition hover:bg-zinc-50"
+                >
+                  <AvatarIcon avatarUrl={u.avatar_url} name={u.display_name ?? u.username ?? "?"} size={36} />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-zinc-900">{u.display_name ?? u.username ?? "—"}</p>
+                    {u.username && <p className="text-xs text-zinc-500">@{u.username}</p>}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    )}
+    {/* フォロー中モーダル */}
+    {showFollowingModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        onClick={() => { setShowFollowingModal(false); setFollowingList([]); }}
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl bg-white shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
+            <h2 className="text-sm font-semibold text-zinc-900">フォロー中</h2>
+            <button
+              type="button"
+              onClick={() => { setShowFollowingModal(false); setFollowingList([]); }}
+              className="text-sm text-zinc-400 transition hover:text-zinc-700"
+            >
+              ✕
+            </button>
+          </div>
+          <ul className="max-h-96 divide-y divide-zinc-100 overflow-y-auto">
+            {followListLoading ? (
+              <li className="px-5 py-6 text-center text-sm text-zinc-400">読み込み中…</li>
+            ) : followingList.length === 0 ? (
+              <li className="px-5 py-6 text-center text-sm text-zinc-400">フォロー中のユーザーはいません</li>
+            ) : followingList.map((u) => (
+              <li key={u.id}>
+                <Link
+                  href={u.username ? `/users/${u.username}` : "#"}
+                  onClick={() => { setShowFollowingModal(false); setFollowingList([]); }}
+                  className="flex items-center gap-3 px-5 py-3 transition hover:bg-zinc-50"
+                >
+                  <AvatarIcon avatarUrl={u.avatar_url} name={u.display_name ?? u.username ?? "?"} size={36} />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-zinc-900">{u.display_name ?? u.username ?? "—"}</p>
+                    {u.username && <p className="text-xs text-zinc-500">@{u.username}</p>}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

@@ -69,14 +69,20 @@ function resolveDisplayName(userId: string | null, map: Map<string, UserStat>): 
   return stat.display_name?.trim() || stat.username?.trim() || "ユーザー";
 }
 
-function resolveUsername(userId: string | null, map: Map<string, UserStat>): string | null {
-  if (!userId) return null;
-  return map.get(userId)?.username?.trim() || null;
-}
-
 function resolveAvatarUrl(userId: string | null, map: Map<string, UserStat>): string | null {
   if (!userId) return null;
   return map.get(userId)?.avatar_url ?? null;
+}
+
+function resolveProfileHref(
+  userId: string | null,
+  currentUserId: string | undefined,
+  map: Map<string, UserStat>,
+): string | null {
+  if (!userId) return null;
+  if (userId === currentUserId) return "/mypage";
+  const username = map.get(userId)?.username?.trim() || null;
+  return username ? `/users/${username}` : null;
 }
 
 function resolveAdvisorRank(userId: string | null, map: Map<string, UserStat>): AdvisorRankInfo | null {
@@ -224,6 +230,9 @@ export default function PostDetailPage() {
   // 通知からのリンクで特定返信をハイライト表示する
   const [highlightReplyId, setHighlightReplyId] = useState<string | null>(null);
   const didScrollToReply = useRef(false);
+  // フォロー状態
+  const [followedUserIds, setFollowedUserIds] = useState<Set<string>>(new Set());
+  const [followActionUserId, setFollowActionUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -345,6 +354,22 @@ export default function PostDetailPage() {
       setLoading(false);
     })();
   }, [params.id]);
+
+  // ログイン後にフォロー状態をまとめて取得
+  useEffect(() => {
+    if (authLoading || !user?.id || userStats.size === 0) return;
+    const otherIds = [...userStats.keys()].filter((id) => id !== user.id);
+    if (otherIds.length === 0) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("user_follows")
+        .select("following_id")
+        .eq("follower_id", user.id)
+        .in("following_id", otherIds);
+      setFollowedUserIds(new Set((data ?? []).map((r) => (r as { following_id: string }).following_id)));
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.id, userStats.size]);
 
   // 通知リンク（#reply-{id}）からの遷移時にスクロール＋ハイライト
   useEffect(() => {
@@ -923,6 +948,34 @@ export default function PostDetailPage() {
     setSettingBestAnswer(false);
   }
 
+  async function handleFollowToggle(targetUserId: string) {
+    if (!user?.id || followActionUserId) return;
+    setFollowActionUserId(targetUserId);
+    const isFollowing = followedUserIds.has(targetUserId);
+    if (isFollowing) {
+      const { error } = await supabase
+        .from("user_follows")
+        .delete()
+        .eq("follower_id", user.id)
+        .eq("following_id", targetUserId);
+      if (!error) {
+        setFollowedUserIds((prev) => {
+          const next = new Set(prev);
+          next.delete(targetUserId);
+          return next;
+        });
+      }
+    } else {
+      const { error } = await supabase
+        .from("user_follows")
+        .insert({ follower_id: user.id, following_id: targetUserId });
+      if (!error) {
+        setFollowedUserIds((prev) => new Set([...prev, targetUserId]));
+      }
+    }
+    setFollowActionUserId(null);
+  }
+
   function handleRemoveExistingPostImage(index: number) {
     setEditPostImageUrls((prev) => prev.filter((_, i) => i !== index));
   }
@@ -1158,7 +1211,7 @@ export default function PostDetailPage() {
                       {" "}が必要です
                     </p>
                   )}
-                  <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
                     <AvatarIcon
                       avatarUrl={resolveAvatarUrl(postUserId, userStats)}
                       name={resolveDisplayName(postUserId, userStats)}
@@ -1166,17 +1219,30 @@ export default function PostDetailPage() {
                     />
                     <span>
                       投稿者：
-                      {resolveUsername(postUserId, userStats) ? (
-                        <Link
-                          href={`/users/${resolveUsername(postUserId, userStats)}`}
-                          className="underline-offset-2 hover:text-zinc-700 hover:underline"
-                        >
-                          {resolveDisplayName(postUserId, userStats)}
-                        </Link>
-                      ) : (
-                        resolveDisplayName(postUserId, userStats)
-                      )}
+                      {(() => {
+                        const href = resolveProfileHref(postUserId, user?.id, userStats);
+                        return href ? (
+                          <Link href={href} className="underline-offset-2 hover:text-zinc-700 hover:underline">
+                            {resolveDisplayName(postUserId, userStats)}
+                          </Link>
+                        ) : (
+                          resolveDisplayName(postUserId, userStats)
+                        );
+                      })()}
                     </span>
+                    {!authLoading && user?.id && postUserId && user.id !== postUserId && (
+                      <button
+                        type="button"
+                        onClick={() => handleFollowToggle(postUserId)}
+                        disabled={followActionUserId === postUserId}
+                        className={followedUserIds.has(postUserId)
+                          ? "rounded-full border border-zinc-200 px-2.5 py-0.5 text-xs font-medium text-zinc-500 transition hover:border-red-200 hover:text-red-500 disabled:opacity-50"
+                          : "rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-white transition hover:bg-zinc-600 disabled:opacity-50"
+                        }
+                      >
+                        {followActionUserId === postUserId ? "…" : followedUserIds.has(postUserId) ? "フォロー中" : "フォローする"}
+                      </button>
+                    )}
                   </div>
                 </div>
                 {post.targetUrl && (
@@ -1412,18 +1478,31 @@ export default function PostDetailPage() {
                               />
                               <span className="text-xs">
                                 返信者：
-                                {resolveUsername(reply.userId, userStats) ? (
-                                  <Link
-                                    href={`/users/${resolveUsername(reply.userId, userStats)}`}
-                                    className="underline-offset-2 hover:text-zinc-700 hover:underline"
-                                  >
-                                    {resolveDisplayName(reply.userId, userStats)}
-                                  </Link>
-                                ) : (
-                                  resolveDisplayName(reply.userId, userStats)
-                                )}
+                                {(() => {
+                                  const href = resolveProfileHref(reply.userId, user?.id, userStats);
+                                  return href ? (
+                                    <Link href={href} className="underline-offset-2 hover:text-zinc-700 hover:underline">
+                                      {resolveDisplayName(reply.userId, userStats)}
+                                    </Link>
+                                  ) : (
+                                    resolveDisplayName(reply.userId, userStats)
+                                  );
+                                })()}
                               </span>
                               <AdvisorRankBadge rank={resolveAdvisorRank(reply.userId, userStats)} />
+                              {!authLoading && user?.id && reply.userId && user.id !== reply.userId && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleFollowToggle(reply.userId!)}
+                                  disabled={followActionUserId === reply.userId}
+                                  className={followedUserIds.has(reply.userId!)
+                                    ? "rounded-full border border-zinc-200 px-2.5 py-0.5 text-xs font-medium text-zinc-500 transition hover:border-red-200 hover:text-red-500 disabled:opacity-50"
+                                    : "rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-white transition hover:bg-zinc-600 disabled:opacity-50"
+                                  }
+                                >
+                                  {followActionUserId === reply.userId ? "…" : followedUserIds.has(reply.userId!) ? "フォロー中" : "フォローする"}
+                                </button>
+                              )}
                               <time className="text-xs" dateTime={reply.createdAt}>
                                 {formatDateTime(reply.createdAt)}
                               </time>
