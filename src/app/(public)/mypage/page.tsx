@@ -568,7 +568,7 @@ export default function MyPage() {
               {(
                 [
                   { label: "フォロー", value: followingUsers.length, href: "/mypage/following" },
-                  { label: "返信", value: myStats?.reply_count ?? 0 },
+                  { label: "返信", value: myStats?.reply_count ?? 0, href: "/mypage/replies" },
                   { label: "投稿フォロー", value: followedPosts.length },
                   { label: "いいね", value: null },
                   { label: "おなじ気持ち", value: null },

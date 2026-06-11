@@ -336,7 +336,7 @@ export default function UserProfilePage() {
           {(
             [
               { label: "フォロー", value: followingCount, href: `/users/${profile.username}/following` },
-              { label: "返信", value: stats?.reply_count ?? 0 },
+              { label: "返信", value: stats?.reply_count ?? 0, href: `/users/${profile.username}/replies` },
               { label: "投稿フォロー", value: followedPostCount },
               { label: "いいね", value: null },
               { label: "おなじ気持ち", value: null },
