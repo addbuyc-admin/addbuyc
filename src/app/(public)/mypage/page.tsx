@@ -567,19 +567,27 @@ export default function MyPage() {
             <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
               {(
                 [
-                  { label: "フォロー", value: followingUsers.length },
+                  { label: "フォロー", value: followingUsers.length, href: "/mypage/following" },
                   { label: "返信", value: myStats?.reply_count ?? 0 },
                   { label: "投稿フォロー", value: followedPosts.length },
                   { label: "いいね", value: null },
                   { label: "おなじ気持ち", value: null },
                   { label: "ベストアンサー", value: null },
-                ] as Array<{ label: string; value: number | null }>
-              ).map(({ label, value }) => (
-                <div key={label} className="rounded-xl border border-zinc-100 bg-zinc-50 px-2 py-3 text-center">
-                  <p className="text-xl font-semibold text-zinc-900">{value !== null ? value : "—"}</p>
-                  <p className="mt-0.5 text-[11px] leading-tight text-zinc-500">{label}</p>
-                </div>
-              ))}
+                ] as Array<{ label: string; value: number | null; href?: string }>
+              ).map(({ label, value, href }) => {
+                const cardClass = "rounded-xl border border-zinc-100 bg-zinc-50 px-2 py-3 text-center";
+                const inner = (
+                  <>
+                    <p className="text-xl font-semibold text-zinc-900">{value !== null ? value : "—"}</p>
+                    <p className="mt-0.5 text-[11px] leading-tight text-zinc-500">{label}</p>
+                  </>
+                );
+                return href ? (
+                  <Link key={label} href={href} className={`${cardClass} block transition hover:bg-zinc-100`}>{inner}</Link>
+                ) : (
+                  <div key={label} className={cardClass}>{inner}</div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -593,19 +601,27 @@ export default function MyPage() {
             <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
               {(
                 [
-                  { label: "フォロワー", value: followerCount },
+                  { label: "フォロワー", value: followerCount, href: "/mypage/followers" },
                   { label: "返信", value: null },
                   { label: "投稿フォロー", value: null },
                   { label: "いいね", value: myStats?.total_reply_likes ?? 0 },
                   { label: "おなじ気持ち", value: ownPostLikeSum },
                   { label: "ベストアンサー", value: myStats?.best_answer_count ?? 0 },
-                ] as Array<{ label: string; value: number | null }>
-              ).map(({ label, value }) => (
-                <div key={label} className="rounded-xl border border-zinc-100 bg-zinc-50 px-2 py-3 text-center">
-                  <p className="text-xl font-semibold text-zinc-900">{value !== null ? value : "—"}</p>
-                  <p className="mt-0.5 text-[11px] leading-tight text-zinc-500">{label}</p>
-                </div>
-              ))}
+                ] as Array<{ label: string; value: number | null; href?: string }>
+              ).map(({ label, value, href }) => {
+                const cardClass = "rounded-xl border border-zinc-100 bg-zinc-50 px-2 py-3 text-center";
+                const inner = (
+                  <>
+                    <p className="text-xl font-semibold text-zinc-900">{value !== null ? value : "—"}</p>
+                    <p className="mt-0.5 text-[11px] leading-tight text-zinc-500">{label}</p>
+                  </>
+                );
+                return href ? (
+                  <Link key={label} href={href} className={`${cardClass} block transition hover:bg-zinc-100`}>{inner}</Link>
+                ) : (
+                  <div key={label} className={cardClass}>{inner}</div>
+                );
+              })}
             </div>
           )}
           <div className="mt-4">
