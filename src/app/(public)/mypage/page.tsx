@@ -109,6 +109,14 @@ export default function MyPage() {
   // 相手からカウント
   const [followerCount, setFollowerCount] = useState(0);
   const [ownPostLikeSum, setOwnPostLikeSum] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  // フォロワー/フォロー中モーダル
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [followersList, setFollowersList] = useState<FollowingUser[]>([]);
+  const [followListLoading, setFollowListLoading] = useState(false);
+  const [modalFollowingIds, setModalFollowingIds] = useState<Set<string>>(new Set());
+  const [modalFollowActionId, setModalFollowActionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -167,6 +175,7 @@ export default function MyPage() {
         .eq("follower_id", user.id)
         .order("created_at", { ascending: false });
       const followingIds = (followingRows ?? []).map((r) => r.following_id);
+      setFollowingCount(followingIds.length);
       if (followingIds.length > 0) {
         const { data: followingProfilesData } = await supabase
           .from("profiles")
@@ -426,6 +435,56 @@ export default function MyPage() {
     setAvatarError(null);
   }
 
+  async function handleOpenFollowers() {
+    if (!user) return;
+    setShowFollowersModal(true);
+    setFollowListLoading(true);
+    const { data: rows } = await supabase
+      .from("user_follows")
+      .select("follower_id")
+      .eq("following_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    const ids = (rows ?? []).map((r) => r.follower_id);
+    if (ids.length > 0) {
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url")
+        .in("id", ids);
+      setFollowersList((profilesData ?? []) as FollowingUser[]);
+    } else {
+      setFollowersList([]);
+    }
+    setModalFollowingIds(new Set(followingUsers.map((u) => u.id)));
+    setFollowListLoading(false);
+  }
+
+  function handleOpenFollowing() {
+    setModalFollowingIds(new Set(followingUsers.map((u) => u.id)));
+    setShowFollowingModal(true);
+  }
+
+  async function handleModalFollowToggle(targetId: string) {
+    if (!user) return;
+    setModalFollowActionId(targetId);
+    const isCurrentlyFollowing = modalFollowingIds.has(targetId);
+    if (isCurrentlyFollowing) {
+      const { error } = await supabase.from("user_follows").delete()
+        .eq("follower_id", user.id).eq("following_id", targetId);
+      if (!error) {
+        setModalFollowingIds((prev) => { const next = new Set(prev); next.delete(targetId); return next; });
+        setFollowingCount((n) => Math.max(0, n - 1));
+      }
+    } else {
+      const { error } = await supabase.from("user_follows").insert({ follower_id: user.id, following_id: targetId });
+      if (!error) {
+        setModalFollowingIds((prev) => new Set([...prev, targetId]));
+        setFollowingCount((n) => n + 1);
+      }
+    }
+    setModalFollowActionId(null);
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16">
@@ -455,6 +514,7 @@ export default function MyPage() {
   const rank = myStats ? getAdvisorRank(myStats) : null;
 
   return (
+    <>
     <div className="mx-auto max-w-3xl px-4 py-10">
       <div className="space-y-6">
 
@@ -540,18 +600,30 @@ export default function MyPage() {
             </div>
           ) : (
             /* 表示モード */
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <AvatarIcon avatarUrl={currentAvatarUrl} name={displayName || "?"} size={72} />
-                <div>
-                  <h1 className="text-xl font-semibold tracking-tight text-zinc-900">{displayName || "—"}</h1>
-                  {currentUsername && <p className="mt-0.5 text-sm text-zinc-500">@{currentUsername}</p>}
+            <div>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <AvatarIcon avatarUrl={currentAvatarUrl} name={displayName || "?"} size={72} />
+                  <div>
+                    <h1 className="text-xl font-semibold tracking-tight text-zinc-900">{displayName || "—"}</h1>
+                    {currentUsername && <p className="mt-0.5 text-sm text-zinc-500">@{currentUsername}</p>}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <AdvisorRankBadge rank={rank} showNone />
+                  <button type="button" onClick={() => setIsEditingProfile(true)} className="rounded-full border border-zinc-200 px-4 py-1.5 text-sm font-medium text-zinc-600 transition hover:border-zinc-400 hover:bg-zinc-50">
+                    プロフィールを編集する
+                  </button>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <AdvisorRankBadge rank={rank} showNone />
-                <button type="button" onClick={() => setIsEditingProfile(true)} className="rounded-full border border-zinc-200 px-4 py-1.5 text-sm font-medium text-zinc-600 transition hover:border-zinc-400 hover:bg-zinc-50">
-                  プロフィールを編集する
+              <div className="mt-3 flex items-center gap-6">
+                <button type="button" onClick={handleOpenFollowers} className="group text-left">
+                  <span className="text-base font-semibold text-zinc-900">{followerCount}</span>
+                  <span className="ml-1.5 text-sm text-zinc-500 group-hover:text-zinc-700">フォロワー</span>
+                </button>
+                <button type="button" onClick={handleOpenFollowing} className="group text-left">
+                  <span className="text-base font-semibold text-zinc-900">{followingCount}</span>
+                  <span className="ml-1.5 text-sm text-zinc-500 group-hover:text-zinc-700">フォロー中</span>
                 </button>
               </div>
             </div>
@@ -564,10 +636,9 @@ export default function MyPage() {
           {fetching ? (
             <div className="mt-4 h-16 animate-pulse rounded-xl bg-zinc-100" />
           ) : (
-            <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
               {(
                 [
-                  { label: "フォロー", value: followingUsers.length, href: "/mypage/following" },
                   { label: "返信", value: myStats?.reply_count ?? 0, href: "/mypage/replies" },
                   { label: "投稿フォロー", value: followedPosts.length },
                   { label: "いいね", value: null },
@@ -598,10 +669,9 @@ export default function MyPage() {
           {fetching ? (
             <div className="mt-4 h-16 animate-pulse rounded-xl bg-zinc-100" />
           ) : (
-            <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
               {(
                 [
-                  { label: "フォロワー", value: followerCount, href: "/mypage/followers" },
                   { label: "返信", value: null },
                   { label: "投稿フォロー", value: null },
                   { label: "いいね", value: myStats?.total_reply_likes ?? 0 },
@@ -791,5 +861,120 @@ export default function MyPage() {
 
       </div>
     </div>
+
+    {/* フォロワーモーダル */}
+    {showFollowersModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        onClick={() => { setShowFollowersModal(false); setFollowersList([]); }}
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl bg-white shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
+            <h2 className="text-sm font-semibold text-zinc-900">フォロワー</h2>
+            <div className="flex items-center gap-3">
+              <Link href="/mypage/followers" onClick={() => setShowFollowersModal(false)} className="text-xs text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline">一覧を見る</Link>
+              <button type="button" onClick={() => { setShowFollowersModal(false); setFollowersList([]); }} className="text-sm text-zinc-400 transition hover:text-zinc-700">✕</button>
+            </div>
+          </div>
+          <ul className="max-h-96 divide-y divide-zinc-100 overflow-y-auto">
+            {followListLoading ? (
+              <li className="px-5 py-6 text-center text-sm text-zinc-400">読み込み中…</li>
+            ) : followersList.length === 0 ? (
+              <li className="px-5 py-6 text-center text-sm text-zinc-400">フォロワーはいません</li>
+            ) : followersList.map((u) => {
+              const isSelf = u.id === user?.id;
+              const isFollowingUser = modalFollowingIds.has(u.id);
+              const isModalLoading = modalFollowActionId === u.id;
+              return (
+                <li key={u.id} className="flex items-center gap-3 px-5 py-3">
+                  <Link
+                    href={u.username ? `/users/${u.username}` : "#"}
+                    onClick={() => { setShowFollowersModal(false); setFollowersList([]); }}
+                    className="flex min-w-0 flex-1 items-center gap-3 transition hover:opacity-80"
+                  >
+                    <AvatarIcon avatarUrl={u.avatar_url} name={u.display_name ?? u.username ?? "?"} size={36} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-zinc-900">{u.display_name ?? u.username ?? "—"}</p>
+                      {u.username && <p className="text-xs text-zinc-500">@{u.username}</p>}
+                    </div>
+                  </Link>
+                  {!isSelf && (
+                    isFollowingUser ? (
+                      <button type="button" disabled={isModalLoading} onClick={() => handleModalFollowToggle(u.id)} className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">
+                        {isModalLoading ? "処理中…" : "フォロー解除"}
+                      </button>
+                    ) : (
+                      <button type="button" disabled={isModalLoading} onClick={() => handleModalFollowToggle(u.id)} className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50">
+                        {isModalLoading ? "処理中…" : "フォローする"}
+                      </button>
+                    )
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    )}
+
+    {/* フォロー中モーダル */}
+    {showFollowingModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        onClick={() => { setShowFollowingModal(false); }}
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl bg-white shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
+            <h2 className="text-sm font-semibold text-zinc-900">フォロー中</h2>
+            <div className="flex items-center gap-3">
+              <Link href="/mypage/following" onClick={() => setShowFollowingModal(false)} className="text-xs text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline">一覧を見る</Link>
+              <button type="button" onClick={() => { setShowFollowingModal(false); }} className="text-sm text-zinc-400 transition hover:text-zinc-700">✕</button>
+            </div>
+          </div>
+          <ul className="max-h-96 divide-y divide-zinc-100 overflow-y-auto">
+            {followingUsers.length === 0 ? (
+              <li className="px-5 py-6 text-center text-sm text-zinc-400">フォロー中のユーザーはいません</li>
+            ) : followingUsers.map((u) => {
+              const isSelf = u.id === user?.id;
+              const isFollowingUser = modalFollowingIds.has(u.id);
+              const isModalLoading = modalFollowActionId === u.id;
+              return (
+                <li key={u.id} className="flex items-center gap-3 px-5 py-3">
+                  <Link
+                    href={u.username ? `/users/${u.username}` : "#"}
+                    onClick={() => setShowFollowingModal(false)}
+                    className="flex min-w-0 flex-1 items-center gap-3 transition hover:opacity-80"
+                  >
+                    <AvatarIcon avatarUrl={u.avatar_url} name={u.display_name ?? u.username ?? "?"} size={36} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-zinc-900">{u.display_name ?? u.username ?? "—"}</p>
+                      {u.username && <p className="text-xs text-zinc-500">@{u.username}</p>}
+                    </div>
+                  </Link>
+                  {!isSelf && (
+                    isFollowingUser ? (
+                      <button type="button" disabled={isModalLoading} onClick={() => handleModalFollowToggle(u.id)} className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">
+                        {isModalLoading ? "処理中…" : "フォロー解除"}
+                      </button>
+                    ) : (
+                      <button type="button" disabled={isModalLoading} onClick={() => handleModalFollowToggle(u.id)} className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50">
+                        {isModalLoading ? "処理中…" : "フォローする"}
+                      </button>
+                    )
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
