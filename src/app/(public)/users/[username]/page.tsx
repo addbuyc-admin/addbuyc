@@ -10,6 +10,8 @@ import { getAdvisorRank } from "@/lib/advisor-rank";
 import { AdvisorRankBadge } from "@/components/AdvisorRankBadge";
 import { AvatarIcon } from "@/components/AvatarIcon";
 import { PostStatusBadge } from "@/components/PostStatusBadge";
+import { CategoryBadge } from "@/components/CategoryBadge";
+import type { CategorySlug } from "@/lib/categories";
 
 const REPLY_EXCERPT_LEN = 100;
 
@@ -52,6 +54,7 @@ type PublicPost = {
   id: number;
   title: string;
   created_at: string;
+  category: string;
   hasBestAnswer: boolean;
 };
 
@@ -78,6 +81,9 @@ export default function UserProfilePage() {
   const [followersList, setFollowersList] = useState<FollowUser[]>([]);
   const [followingList, setFollowingList] = useState<FollowUser[]>([]);
   const [followListLoading, setFollowListLoading] = useState(false);
+  // 追加カウント
+  const [followedPostCount, setFollowedPostCount] = useState(0);
+  const [ownPostLikeSum, setOwnPostLikeSum] = useState(0);
 
   useEffect(() => {
     if (!username) return;
@@ -97,7 +103,7 @@ export default function UserProfilePage() {
       const profileData = profileRes.data as Profile;
       setProfile(profileData);
 
-      const [statsRes, repliesRes, postsRes, followerRes, followingRes] = await Promise.all([
+      const [statsRes, repliesRes, postsRes, followerRes, followingRes, followedPostCountRes, allPostLikesRes] = await Promise.all([
         supabase
           .from("user_stats")
           .select("post_count, reply_count, total_reply_likes, best_answer_count")
@@ -109,14 +115,14 @@ export default function UserProfilePage() {
           .eq("user_id", profileData.id)
           .eq("status", "published")
           .order("created_at", { ascending: false })
-          .limit(20),
+          .limit(10),
         supabase
           .from("posts")
-          .select("id, title, created_at")
+          .select("id, title, created_at, category")
           .eq("user_id", profileData.id)
           .eq("status", "published")
           .order("created_at", { ascending: false })
-          .limit(10),
+          .limit(5),
         supabase
           .from("user_follows")
           .select("*", { count: "exact", head: true })
@@ -125,16 +131,29 @@ export default function UserProfilePage() {
           .from("user_follows")
           .select("*", { count: "exact", head: true })
           .eq("follower_id", profileData.id),
+        supabase
+          .from("post_follows")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", profileData.id),
+        supabase
+          .from("posts")
+          .select("likes")
+          .eq("user_id", profileData.id)
+          .eq("status", "published"),
       ]);
 
       setFollowerCount(followerRes.count ?? 0);
       setFollowingCount(followingRes.count ?? 0);
+      setFollowedPostCount(followedPostCountRes.count ?? 0);
+      setOwnPostLikeSum(
+        ((allPostLikesRes.data ?? []) as { likes: number | null }[])
+          .reduce((sum, p) => sum + (p.likes ?? 0), 0),
+      );
 
       setStats(statsRes.data as Stats | null);
 
       const publishedReplies = ((repliesRes.data ?? []) as unknown as PublicReply[])
-        .filter((r) => r.posts?.status === "published")
-        .slice(0, 10);
+        .filter((r) => r.posts?.status === "published");
       setReplies(publishedReplies);
 
       const postIdsArr = ((postsRes.data ?? []) as { id: number }[]).map((p) => p.id);
@@ -152,7 +171,7 @@ export default function UserProfilePage() {
       }
 
       setPosts(
-        ((postsRes.data ?? []) as { id: number; title: string; created_at: string }[]).map((p) => ({
+        ((postsRes.data ?? []) as { id: number; title: string; created_at: string; category: string }[]).map((p) => ({
           ...p,
           hasBestAnswer: bestAnswerPostIds.has(p.id),
         })),
@@ -271,15 +290,16 @@ export default function UserProfilePage() {
 
   return (
     <>
-    <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
-      <div className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
+
+      {/* ① プロフィールセクション */}
+      <div>
+        <h2 className="mb-4 text-base font-semibold text-zinc-900">プロフィール</h2>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <AvatarIcon avatarUrl={profile.avatar_url} name={displayName} size={72} />
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-                {displayName}
-              </h1>
+              <h1 className="text-xl font-semibold tracking-tight text-zinc-900">{displayName}</h1>
               <p className="mt-0.5 text-sm text-zinc-500">@{profile.username}</p>
             </div>
           </div>
@@ -287,136 +307,118 @@ export default function UserProfilePage() {
             {rank && <AdvisorRankBadge rank={rank} />}
             {!authLoading && currentUser && currentUser.id !== profile.id && (
               isFollowing ? (
-                <button
-                  type="button"
-                  onClick={handleUnfollowProfile}
-                  disabled={followLoading}
-                  className="rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-sm font-medium text-zinc-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                >
-                  フォロー解除
-                </button>
+                <button type="button" onClick={handleUnfollowProfile} disabled={followLoading} className="rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-sm font-medium text-zinc-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">フォロー解除</button>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleFollow}
-                  disabled={followLoading}
-                  className="rounded-full bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-700 disabled:opacity-50"
-                >
-                  フォローする
-                </button>
+                <button type="button" onClick={handleFollow} disabled={followLoading} className="rounded-full bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-700 disabled:opacity-50">フォローする</button>
               )
             )}
           </div>
         </div>
-        <p className="text-xs text-zinc-400">
-          登録日:{" "}
-          {new Date(profile.created_at).toLocaleDateString("ja-JP", {
-            year: "numeric",
-            month: "long",
-            timeZone: "Asia/Tokyo",
-          })}
+        <p className="mt-3 text-xs text-zinc-400">
+          登録日：{new Date(profile.created_at).toLocaleDateString("ja-JP", { year: "numeric", month: "long", timeZone: "Asia/Tokyo" })}
         </p>
-        {/* フォロワー / フォロー中 */}
-        <div className="flex items-center gap-6 pt-1">
-          <button
-            type="button"
-            onClick={handleOpenFollowers}
-            className="group text-left"
-          >
+        <div className="mt-3 flex items-center gap-6">
+          <button type="button" onClick={handleOpenFollowers} className="group text-left">
             <span className="text-base font-semibold text-zinc-900">{followerCount}</span>
             <span className="ml-1.5 text-sm text-zinc-500 group-hover:text-zinc-700">フォロワー</span>
           </button>
-          <button
-            type="button"
-            onClick={handleOpenFollowing}
-            className="group text-left"
-          >
+          <button type="button" onClick={handleOpenFollowing} className="group text-left">
             <span className="text-base font-semibold text-zinc-900">{followingCount}</span>
             <span className="ml-1.5 text-sm text-zinc-500 group-hover:text-zinc-700">フォロー中</span>
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { label: "投稿数", value: stats?.post_count ?? 0 },
-          { label: "返信数", value: stats?.reply_count ?? 0 },
-          { label: "返信いいね数", value: stats?.total_reply_likes ?? 0 },
-          { label: "ベストアンサー", value: stats?.best_answer_count ?? 0 },
-        ].map(({ label, value }) => (
-          <div
-            key={label}
-            className="rounded-xl border border-zinc-200 bg-white p-4 text-center shadow-sm"
-          >
-            <p className="text-2xl font-semibold text-zinc-900">{value}</p>
-            <p className="mt-1 text-xs text-zinc-500">{label}</p>
-          </div>
-        ))}
+      {/* ② 自分から */}
+      <div>
+        <h2 className="text-base font-semibold text-zinc-900">自分から</h2>
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {(
+            [
+              { label: "フォロー", value: followingCount },
+              { label: "返信", value: stats?.reply_count ?? 0 },
+              { label: "投稿フォロー", value: followedPostCount },
+              { label: "いいね", value: null },
+              { label: "おなじ気持ち", value: null },
+              { label: "ベストアンサー", value: null },
+            ] as Array<{ label: string; value: number | null }>
+          ).map(({ label, value }) => (
+            <div key={label} className="rounded-xl border border-zinc-100 bg-zinc-50 px-2 py-3 text-center">
+              <p className="text-xl font-semibold text-zinc-900">{value !== null ? value : "—"}</p>
+              <p className="mt-0.5 text-[11px] leading-tight text-zinc-500">{label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <section>
-        <h2 className="mb-3 text-sm font-semibold text-zinc-700">最近の返信</h2>
-        {replies.length === 0 ? (
-          <p className="text-sm text-zinc-400">まだ返信はありません。</p>
-        ) : (
-          <ul className="space-y-3">
-            {replies.map((reply) => (
-              <li
-                key={reply.id}
-                className="space-y-1 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
-              >
-                {reply.posts && (
-                  <Link
-                    href={`/posts/${reply.post_id}`}
-                    className="line-clamp-1 text-xs text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline"
-                  >
-                    {reply.posts.title}
-                  </Link>
-                )}
-                <p className="text-sm text-zinc-700">{truncate(reply.description)}</p>
-                <time
-                  className="block text-xs text-zinc-400"
-                  dateTime={reply.created_at}
-                >
-                  {formatDateTime(reply.created_at)}
-                </time>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {/* ③ 相手から */}
+      <div>
+        <h2 className="text-base font-semibold text-zinc-900">相手から</h2>
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {(
+            [
+              { label: "フォロワー", value: followerCount },
+              { label: "返信", value: null },
+              { label: "投稿フォロー", value: null },
+              { label: "いいね", value: stats?.total_reply_likes ?? 0 },
+              { label: "おなじ気持ち", value: ownPostLikeSum },
+              { label: "ベストアンサー", value: stats?.best_answer_count ?? 0 },
+            ] as Array<{ label: string; value: number | null }>
+          ).map(({ label, value }) => (
+            <div key={label} className="rounded-xl border border-zinc-100 bg-zinc-50 px-2 py-3 text-center">
+              <p className="text-xl font-semibold text-zinc-900">{value !== null ? value : "—"}</p>
+              <p className="mt-0.5 text-[11px] leading-tight text-zinc-500">{label}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4">
+          <Link href="/advisor-ranks" className="text-xs text-zinc-400 underline-offset-2 transition hover:text-zinc-600 hover:underline">アドバイザーランクについて</Link>
+        </div>
+      </div>
 
-      <section>
-        <h2 className="mb-3 text-sm font-semibold text-zinc-700">最近の投稿</h2>
+      {/* ④ 最近の投稿 */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-zinc-900">最近の投稿</h2>
         {posts.length === 0 ? (
-          <p className="text-sm text-zinc-400">まだ投稿はありません。</p>
+          <p className="mt-4 text-sm text-zinc-400">まだ投稿はありません。</p>
         ) : (
-          <ul className="space-y-3">
-            {posts.map((post) => (
-              <li
-                key={post.id}
-                className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
-              >
-                <div className="flex items-center gap-2">
+          <ul className="mt-4 divide-y divide-zinc-100">
+            {posts.slice(0, 5).map((post) => (
+              <li key={post.id} className="py-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <PostStatusBadge hasBestAnswer={post.hasBestAnswer} />
-                  <Link
-                    href={`/posts/${post.id}`}
-                    className="text-sm font-medium text-zinc-800 underline-offset-2 hover:text-zinc-600 hover:underline"
-                  >
-                    {post.title}
-                  </Link>
+                  <Link href={`/posts/${post.id}`} className="text-sm font-medium text-zinc-900 underline-offset-2 transition hover:text-zinc-600 hover:underline">{post.title}</Link>
                 </div>
-                <time
-                  className="mt-1 block text-xs text-zinc-400"
-                  dateTime={post.created_at}
-                >
-                  {formatDateTime(post.created_at)}
-                </time>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                  <CategoryBadge category={post.category as CategorySlug} />
+                  <time dateTime={post.created_at}>{formatDateTime(post.created_at)}</time>
+                </div>
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </div>
+
+      {/* ⑤ 最近の返信 */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-zinc-900">最近の返信</h2>
+        {replies.length === 0 ? (
+          <p className="mt-4 text-sm text-zinc-400">まだ返信はありません。</p>
+        ) : (
+          <ul className="mt-4 divide-y divide-zinc-100">
+            {replies.slice(0, 5).map((reply) => (
+              <li key={reply.id} className="py-3">
+                {reply.posts && (
+                  <Link href={`/posts/${reply.post_id}`} className="line-clamp-1 text-xs text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline">{reply.posts.title}</Link>
+                )}
+                <p className="mt-0.5 text-sm text-zinc-700">{truncate(reply.description)}</p>
+                <time className="mt-1 block text-xs text-zinc-400" dateTime={reply.created_at}>{formatDateTime(reply.created_at)}</time>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
     </div>
     {/* フォロワーモーダル */}
     {showFollowersModal && (

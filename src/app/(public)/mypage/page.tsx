@@ -104,6 +104,11 @@ export default function MyPage() {
   const [followedPosts, setFollowedPosts] = useState<FollowedPost[]>([]);
   const [unfollowedPostIds, setUnfollowedPostIds] = useState<Set<number>>(new Set());
   const [postFollowActionId, setPostFollowActionId] = useState<number | null>(null);
+  // プロフィール編集モード
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  // 相手からカウント
+  const [followerCount, setFollowerCount] = useState(0);
+  const [ownPostLikeSum, setOwnPostLikeSum] = useState(0);
 
   useEffect(() => {
     if (loading) return;
@@ -112,7 +117,7 @@ export default function MyPage() {
       return;
     }
     void (async () => {
-      const [profileResult, postsResult, repliesResult, statsResult] =
+      const [profileResult, postsResult, repliesResult, statsResult, followerCountResult] =
         await Promise.all([
           supabase
             .from("profiles")
@@ -134,15 +139,26 @@ export default function MyPage() {
             .select("post_count, reply_count, total_reply_likes, best_answer_count")
             .eq("user_id", user.id)
             .maybeSingle(),
+          supabase
+            .from("user_follows")
+            .select("*", { count: "exact", head: true })
+            .eq("following_id", user.id),
         ]);
 
       const profile = profileResult.data as { display_name: string | null; username: string | null; avatar_url: string | null } | null;
       setDisplayName(profile?.display_name ?? "");
       setCurrentUsername(profile?.username ?? null);
       setCurrentAvatarUrl(profile?.avatar_url ?? null);
-      setMyPosts((postsResult.data ?? []) as MyPost[]);
+      const fetchedPosts = (postsResult.data ?? []) as MyPost[];
+      setMyPosts(fetchedPosts);
       setMyReplies((repliesResult.data ?? []) as unknown as MyReply[]);
       setMyStats(statsResult.data as MyStats | null);
+      setFollowerCount(followerCountResult.count ?? 0);
+      setOwnPostLikeSum(
+        fetchedPosts
+          .filter((p) => p.status !== "hidden")
+          .reduce((sum, p) => sum + (p.likes ?? 0), 0),
+      );
 
       // フォロー中ユーザーを取得
       const { data: followingRows } = await supabase
@@ -398,6 +414,18 @@ export default function MyPage() {
     setSaving(false);
   }
 
+  function handleCancelEditProfile() {
+    if (cropSrc) {
+      URL.revokeObjectURL(cropSrc);
+      setCropSrc(null);
+      setCropZoom(1.2);
+    }
+    setIsEditingProfile(false);
+    setError(null);
+    setSuccess(false);
+    setAvatarError(null);
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16">
@@ -427,164 +455,56 @@ export default function MyPage() {
   const rank = myStats ? getAdvisorRank(myStats) : null;
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-          マイページ
-        </h1>
-      </div>
-
+    <div className="mx-auto max-w-3xl px-4 py-10">
       <div className="space-y-6">
-        {/* 実績・ランク */}
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-zinc-900">実績・アドバイザーランク</h2>
+
+        {/* ① プロフィールセクション */}
+        <div>
+          <h2 className="mb-4 text-base font-semibold text-zinc-900">プロフィール</h2>
           {fetching ? (
-            <div className="mt-4 h-16 animate-pulse rounded-xl bg-zinc-100" />
-          ) : (
-            <>
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {[
-                  { label: "投稿数", value: myStats?.post_count ?? 0 },
-                  { label: "返信数", value: myStats?.reply_count ?? 0 },
-                  { label: "返信いいね数", value: myStats?.total_reply_likes ?? 0 },
-                  { label: "ベストアンサー", value: myStats?.best_answer_count ?? 0 },
-                ].map(({ label, value }) => (
-                  <div key={label} className="rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 text-center">
-                    <p className="text-xs text-zinc-500">{label}</p>
-                    <p className="mt-1 text-xl font-semibold text-zinc-900">{value}</p>
-                  </div>
-                ))}
+            <div className="h-24 animate-pulse rounded-xl bg-zinc-100" />
+          ) : isEditingProfile ? (
+            /* 編集モード */
+            <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-6">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-zinc-700">プロフィールを編集</p>
+                <button type="button" onClick={handleCancelEditProfile} className="text-sm text-zinc-400 transition hover:text-zinc-700">✕</button>
               </div>
-              <div className="mt-4 flex items-center gap-3">
-                <span className="text-sm text-zinc-600">現在のランク：</span>
-                <AdvisorRankBadge rank={rank} showNone />
-              </div>
-              <div className="mt-3">
-                <Link
-                  href="/advisor-ranks"
-                  className="text-xs text-zinc-400 underline-offset-2 transition hover:text-zinc-600 hover:underline"
-                >
-                  アドバイザーランクについて
-                </Link>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* プロフィール設定 */}
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-zinc-900">プロフィール設定</h2>
-
-          {fetching ? (
-            <div className="mt-4 h-24 animate-pulse rounded-xl bg-zinc-100" />
-          ) : (
-            <div className="mt-4 space-y-6">
-
-              {/* プロフィール画像 */}
+              {/* アバター */}
               <div className="space-y-3">
                 <p className="text-sm font-medium text-zinc-800">プロフィール画像</p>
                 {cropSrc ? (
                   <div ref={cropContainerRef} className="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-                    <p className="text-center text-xs text-zinc-500">
-                      ドラッグで位置調整・スライダーでズーム
-                    </p>
+                    <p className="text-center text-xs text-zinc-500">ドラッグで位置調整・スライダーでズーム</p>
                     <div className="flex justify-center">
-                      <AvatarEditor
-                        ref={editorRef}
-                        image={cropSrc}
-                        width={260}
-                        height={260}
-                        border={30}
-                        borderRadius={130}
-                        color={[244, 244, 245, 0.75]}
-                        scale={cropZoom}
-                      />
+                      <AvatarEditor ref={editorRef} image={cropSrc} width={260} height={260} border={30} borderRadius={130} color={[244, 244, 245, 0.75]} scale={cropZoom} />
                     </div>
                     <div className="space-y-1 px-1">
-                      <div className="flex items-center justify-between text-xs text-zinc-400">
-                        <span>縮小</span>
-                        <span>拡大</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={1}
-                        max={3}
-                        step={0.01}
-                        value={cropZoom}
-                        onChange={(e) => setCropZoom(Number(e.target.value))}
-                        className="w-full accent-zinc-900"
-                      />
+                      <div className="flex items-center justify-between text-xs text-zinc-400"><span>縮小</span><span>拡大</span></div>
+                      <input type="range" min={1} max={3} step={0.01} value={cropZoom} onChange={(e) => setCropZoom(Number(e.target.value))} className="w-full accent-zinc-900" />
                     </div>
                     <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={handleCropCancel}
-                        className="flex-1 rounded-full border border-zinc-200 py-2 text-sm text-zinc-700 transition hover:border-zinc-400 hover:bg-white"
-                      >
-                        キャンセル
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleCropConfirm}
-                        className="flex-1 rounded-full bg-zinc-900 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
-                      >
-                        決定
-                      </button>
+                      <button type="button" onClick={handleCropCancel} className="flex-1 rounded-full border border-zinc-200 py-2 text-sm text-zinc-700 transition hover:border-zinc-400 hover:bg-white">キャンセル</button>
+                      <button type="button" onClick={handleCropConfirm} className="flex-1 rounded-full bg-zinc-900 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800">決定</button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-4">
-                    <AvatarIcon
-                      avatarUrl={avatarPreviewUrl ?? currentAvatarUrl}
-                      name={displayName || "?"}
-                      size={64}
-                    />
+                    <AvatarIcon avatarUrl={avatarPreviewUrl ?? currentAvatarUrl} name={displayName || "?"} size={64} />
                     <div>
-                      <input
-                        ref={avatarInputRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="hidden"
-                        onChange={handleAvatarChange}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => avatarInputRef.current?.click()}
-                        className="rounded-full border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition hover:border-zinc-400 hover:bg-zinc-50"
-                      >
-                        画像を変更
-                      </button>
+                      <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarChange} />
+                      <button type="button" onClick={() => avatarInputRef.current?.click()} className="rounded-full border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition hover:border-zinc-400 hover:bg-zinc-50">画像を変更</button>
                     </div>
                   </div>
                 )}
-                {avatarError && (
-                  <p className="text-xs text-red-600" role="alert">{avatarError}</p>
-                )}
+                {avatarError && <p className="text-xs text-red-600" role="alert">{avatarError}</p>}
               </div>
-
               {/* 名前 */}
               <div className="space-y-2">
-                <label htmlFor="displayName" className="text-sm font-medium text-zinc-800">
-                  名前
-                </label>
-                <input
-                  id="displayName"
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => {
-                    setDisplayName(e.target.value);
-                    setError(null);
-                    setSuccess(false);
-                  }}
-                  maxLength={MAX_DISPLAY_NAME_LENGTH}
-                  placeholder="例：山田太郎"
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
-                />
-                <p className="text-xs text-zinc-400">
-                  {displayName.length}/{MAX_DISPLAY_NAME_LENGTH}文字
-                </p>
+                <label htmlFor="displayName" className="text-sm font-medium text-zinc-800">名前</label>
+                <input id="displayName" type="text" value={displayName} onChange={(e) => { setDisplayName(e.target.value); setError(null); setSuccess(false); }} maxLength={MAX_DISPLAY_NAME_LENGTH} placeholder="例：山田太郎" className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2" />
+                <p className="text-xs text-zinc-400">{displayName.length}/{MAX_DISPLAY_NAME_LENGTH}文字</p>
               </div>
-
               {/* ユーザー名 */}
               <div className="space-y-2">
                 <p className="text-sm font-medium text-zinc-800">ユーザー名</p>
@@ -595,355 +515,264 @@ export default function MyPage() {
                   </div>
                 ) : (
                   <form onSubmit={handleSaveUsername} className="space-y-2">
-                    <input
-                      type="text"
-                      value={usernameInput}
-                      onChange={(e) => {
-                        setUsernameInput(e.target.value.toLowerCase().trim());
-                        setUsernameError(null);
-                        setUsernameSuccess(false);
-                      }}
-                      placeholder="例：taro_yamada"
-                      autoComplete="username"
-                      className={`w-full rounded-xl border bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:ring-2 ${
-                        usernameError
-                          ? "border-red-300 focus:border-red-400"
-                          : "border-zinc-200 focus:border-zinc-300"
-                      }`}
-                    />
-                    {usernameError ? (
-                      <p className="text-xs text-red-600" role="alert">{usernameError}</p>
-                    ) : usernameSuccess ? (
-                      <p className="text-xs text-emerald-600" role="status">ユーザー名を設定しました</p>
-                    ) : (
-                      <p className="text-xs text-zinc-400">
-                        3〜20文字・英小文字 / 数字 / アンダースコアのみ
-                      </p>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={savingUsername}
-                      className="rounded-full bg-zinc-900 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {savingUsername ? "設定中…" : "設定する"}
-                    </button>
+                    <input type="text" value={usernameInput} onChange={(e) => { setUsernameInput(e.target.value.toLowerCase().trim()); setUsernameError(null); setUsernameSuccess(false); }} placeholder="例：taro_yamada" autoComplete="username" className={`w-full rounded-xl border bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:ring-2 ${usernameError ? "border-red-300 focus:border-red-400" : "border-zinc-200 focus:border-zinc-300"}`} />
+                    {usernameError ? <p className="text-xs text-red-600" role="alert">{usernameError}</p> : usernameSuccess ? <p className="text-xs text-emerald-600" role="status">ユーザー名を設定しました</p> : <p className="text-xs text-zinc-400">3〜20文字・英小文字 / 数字 / アンダースコアのみ</p>}
+                    <button type="submit" disabled={savingUsername} className="rounded-full bg-zinc-900 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70">{savingUsername ? "設定中…" : "設定する"}</button>
                   </form>
                 )}
               </div>
-
-              {/* メールアドレス */}
+              {/* メール */}
               <div className="space-y-2">
                 <p className="text-sm font-medium text-zinc-800">メールアドレス</p>
                 <p className="text-[15px] text-zinc-900">{user.email}</p>
               </div>
-
               {/* パスワード */}
               <div className="space-y-2">
                 <p className="text-sm font-medium text-zinc-800">パスワード</p>
                 <p className="text-[15px] tracking-widest text-zinc-900">••••••••</p>
                 <p className="text-xs text-zinc-400">変更機能は今後対応予定</p>
               </div>
-
-              {/* 保存フィードバック */}
-              {error && (
-                <p className="text-sm text-red-600" role="alert">{error}</p>
-              )}
-              {success && (
-                <p className="text-sm text-emerald-600" role="status">保存しました</p>
-              )}
-
-              {/* 保存するボタン */}
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
-              >
+              {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
+              {success && <p className="text-sm text-emerald-600" role="status">保存しました</p>}
+              <button type="button" onClick={handleSave} disabled={saving} className="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70">
                 {saving ? "保存中…" : "保存する"}
               </button>
+            </div>
+          ) : (
+            /* 表示モード */
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <AvatarIcon avatarUrl={currentAvatarUrl} name={displayName || "?"} size={72} />
+                <div>
+                  <h1 className="text-xl font-semibold tracking-tight text-zinc-900">{displayName || "—"}</h1>
+                  {currentUsername && <p className="mt-0.5 text-sm text-zinc-500">@{currentUsername}</p>}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <AdvisorRankBadge rank={rank} showNone />
+                <button type="button" onClick={() => setIsEditingProfile(true)} className="rounded-full border border-zinc-200 px-4 py-1.5 text-sm font-medium text-zinc-600 transition hover:border-zinc-400 hover:bg-zinc-50">
+                  プロフィールを編集する
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        {/* フォロー中ユーザー一覧 */}
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-zinc-900">フォロー中</h2>
+        {/* ② 自分から */}
+        <div>
+          <h2 className="text-base font-semibold text-zinc-900">自分から</h2>
           {fetching ? (
-            <div className="mt-4 h-24 animate-pulse rounded-xl bg-zinc-100" />
-          ) : followingUsers.length === 0 ? (
-            <p className="mt-4 text-sm text-zinc-400">フォロー中のユーザーはいません</p>
+            <div className="mt-4 h-16 animate-pulse rounded-xl bg-zinc-100" />
           ) : (
-            <ul className="mt-4 divide-y divide-zinc-100">
-              {followingUsers.map((fu) => {
-                const isUnfollowed = unfollowedIds.has(fu.id);
-                const isLoading = followActionId === fu.id;
-                return (
-                  <li key={fu.id} className="flex items-center justify-between gap-3 py-3">
-                    <Link
-                      href={fu.username ? `/users/${fu.username}` : "#"}
-                      className="flex min-w-0 items-center gap-3 transition hover:opacity-80"
-                    >
-                      <AvatarIcon avatarUrl={fu.avatar_url} name={fu.display_name ?? fu.username ?? "?"} size={36} />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-zinc-900">
-                          {fu.display_name ?? fu.username ?? "—"}
-                        </p>
-                        {fu.username && (
-                          <p className="text-xs text-zinc-500">@{fu.username}</p>
-                        )}
-                      </div>
-                    </Link>
-                    {isUnfollowed ? (
-                      // 解除済み → 再フォローボタン
-                      <button
-                        type="button"
-                        disabled={isLoading}
-                        onClick={async () => {
-                          if (!user) return;
-                          setFollowActionId(fu.id);
-                          const { error } = await supabase
-                            .from("user_follows")
-                            .insert({ follower_id: user.id, following_id: fu.id });
-                          if (!error) {
-                            setUnfollowedIds((prev) => {
-                              const next = new Set(prev);
-                              next.delete(fu.id);
-                              return next;
-                            });
-                          }
-                          setFollowActionId(null);
-                        }}
-                        className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50"
-                      >
-                        {isLoading ? "処理中…" : "フォローする"}
-                      </button>
-                    ) : (
-                      // フォロー中 → 解除ボタン
-                      <button
-                        type="button"
-                        disabled={isLoading}
-                        onClick={async () => {
-                          if (!user) return;
-                          setFollowActionId(fu.id);
-                          const { error } = await supabase
-                            .from("user_follows")
-                            .delete()
-                            .eq("follower_id", user.id)
-                            .eq("following_id", fu.id);
-                          if (!error) {
-                            setUnfollowedIds((prev) => new Set([...prev, fu.id]));
-                          }
-                          setFollowActionId(null);
-                        }}
-                        className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                      >
-                        {isLoading ? "処理中…" : "フォロー解除"}
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {(
+                [
+                  { label: "フォロー", value: followingUsers.length },
+                  { label: "返信", value: myStats?.reply_count ?? 0 },
+                  { label: "投稿フォロー", value: followedPosts.length },
+                  { label: "いいね", value: null },
+                  { label: "おなじ気持ち", value: null },
+                  { label: "ベストアンサー", value: null },
+                ] as Array<{ label: string; value: number | null }>
+              ).map(({ label, value }) => (
+                <div key={label} className="rounded-xl border border-zinc-100 bg-zinc-50 px-2 py-3 text-center">
+                  <p className="text-xl font-semibold text-zinc-900">{value !== null ? value : "—"}</p>
+                  <p className="mt-0.5 text-[11px] leading-tight text-zinc-500">{label}</p>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
-        {/* フォロー中の投稿 */}
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-zinc-900">フォロー中の投稿</h2>
+        {/* ③ 相手から */}
+        <div>
+          <h2 className="text-base font-semibold text-zinc-900">相手から</h2>
           {fetching ? (
-            <div className="mt-4 h-24 animate-pulse rounded-xl bg-zinc-100" />
-          ) : followedPosts.length === 0 ? (
-            <p className="mt-4 text-sm text-zinc-400">フォロー中の投稿はありません</p>
+            <div className="mt-4 h-16 animate-pulse rounded-xl bg-zinc-100" />
           ) : (
-            <ul className="mt-4 divide-y divide-zinc-100">
-              {followedPosts.map((fp) => {
-                const postData = fp.posts;
-                const isUnfollowed = unfollowedPostIds.has(fp.post_id);
-                const isLoading = postFollowActionId === fp.post_id;
-                const isHidden = postData?.status === "hidden";
-                return (
-                  <li key={fp.post_id} className="flex items-start justify-between gap-3 py-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {isHidden ? (
-                          <span className="text-sm font-medium text-zinc-400 line-through">
-                            {postData?.title ?? "（投稿が見つかりません）"}
-                          </span>
-                        ) : (
-                          <Link
-                            href={`/posts/${fp.post_id}`}
-                            className="text-sm font-medium text-zinc-900 underline-offset-2 transition hover:text-zinc-600 hover:underline"
-                          >
-                            {postData?.title ?? "（投稿が見つかりません）"}
-                          </Link>
-                        )}
-                        {isHidden && (
-                          <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500">
-                            非表示
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-                        {postData?.category && (
-                          <CategoryBadge category={postData.category as CategorySlug} />
-                        )}
-                        <time dateTime={fp.created_at}>{formatDateTime(fp.created_at)}</time>
-                      </div>
-                    </div>
-                    {isUnfollowed ? (
-                      <button
-                        type="button"
-                        disabled={isLoading}
-                        onClick={async () => {
-                          if (!user) return;
-                          setPostFollowActionId(fp.post_id);
-                          const { error } = await supabase
-                            .from("post_follows")
-                            .insert({ user_id: user.id, post_id: fp.post_id });
-                          if (!error) {
-                            setUnfollowedPostIds((prev) => {
-                              const next = new Set(prev);
-                              next.delete(fp.post_id);
-                              return next;
-                            });
-                          }
-                          setPostFollowActionId(null);
-                        }}
-                        className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50"
-                      >
-                        {isLoading ? "処理中…" : "フォローする"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={isLoading}
-                        onClick={async () => {
-                          if (!user) return;
-                          setPostFollowActionId(fp.post_id);
-                          const { error } = await supabase
-                            .from("post_follows")
-                            .delete()
-                            .eq("user_id", user.id)
-                            .eq("post_id", fp.post_id);
-                          if (!error) {
-                            setUnfollowedPostIds((prev) => new Set([...prev, fp.post_id]));
-                          }
-                          setPostFollowActionId(null);
-                        }}
-                        className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                      >
-                        {isLoading ? "処理中…" : "フォロー解除"}
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {(
+                [
+                  { label: "フォロワー", value: followerCount },
+                  { label: "返信", value: null },
+                  { label: "投稿フォロー", value: null },
+                  { label: "いいね", value: myStats?.total_reply_likes ?? 0 },
+                  { label: "おなじ気持ち", value: ownPostLikeSum },
+                  { label: "ベストアンサー", value: myStats?.best_answer_count ?? 0 },
+                ] as Array<{ label: string; value: number | null }>
+              ).map(({ label, value }) => (
+                <div key={label} className="rounded-xl border border-zinc-100 bg-zinc-50 px-2 py-3 text-center">
+                  <p className="text-xl font-semibold text-zinc-900">{value !== null ? value : "—"}</p>
+                  <p className="mt-0.5 text-[11px] leading-tight text-zinc-500">{label}</p>
+                </div>
+              ))}
+            </div>
           )}
+          <div className="mt-4">
+            <Link href="/advisor-ranks" className="text-xs text-zinc-400 underline-offset-2 transition hover:text-zinc-600 hover:underline">アドバイザーランクについて</Link>
+          </div>
         </div>
 
-        {/* 投稿一覧 */}
+        {/* ④ 最近の投稿 */}
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-zinc-900">投稿一覧</h2>
+          <h2 className="text-base font-semibold text-zinc-900">最近の投稿</h2>
           {fetching ? (
             <div className="mt-4 h-24 animate-pulse rounded-xl bg-zinc-100" />
           ) : myPosts.length === 0 ? (
             <p className="mt-4 text-sm text-zinc-400">まだ投稿はありません</p>
           ) : (
-            <ul className="mt-4 divide-y divide-zinc-100">
-              {myPosts.map((post) => {
-                const isHidden = post.status === "hidden";
-                return (
-                  <li key={post.id} className="py-3">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {isHidden ? (
-                            <span className="text-sm font-medium text-zinc-400 line-through">
-                              {post.title}
-                            </span>
-                          ) : (
-                            <Link
-                              href={`/posts/${post.id}`}
-                              className="text-sm font-medium text-zinc-900 underline-offset-2 transition hover:text-zinc-600 hover:underline"
-                            >
-                              {post.title}
-                            </Link>
-                          )}
-                          {isHidden && (
-                            <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500">
-                              非表示
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-                          <CategoryBadge category={post.category as CategorySlug} />
-                          <time dateTime={post.created_at}>{formatDateTime(post.created_at)}</time>
-                          <span className="inline-flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                            {post.likes}
-                          </span>
-                        </div>
+            <>
+              <ul className="mt-4 divide-y divide-zinc-100">
+                {myPosts.slice(0, 5).map((post) => {
+                  const isHidden = post.status === "hidden";
+                  return (
+                    <li key={post.id} className="py-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {isHidden ? (
+                          <span className="text-sm font-medium text-zinc-400 line-through">{post.title}</span>
+                        ) : (
+                          <Link href={`/posts/${post.id}`} className="text-sm font-medium text-zinc-900 underline-offset-2 transition hover:text-zinc-600 hover:underline">{post.title}</Link>
+                        )}
+                        {isHidden && <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500">非表示</span>}
                       </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                        <CategoryBadge category={post.category as CategorySlug} />
+                        <time dateTime={post.created_at}>{formatDateTime(post.created_at)}</time>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              {myPosts.length > 5 && (
+                <p className="mt-3 text-xs text-zinc-400">投稿一覧は後続Phaseで対応予定です</p>
+              )}
+            </>
           )}
         </div>
 
-        {/* 返信一覧 */}
+        {/* ⑤ 最近の返信 */}
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-zinc-900">返信一覧</h2>
+          <h2 className="text-base font-semibold text-zinc-900">最近の返信</h2>
           {fetching ? (
             <div className="mt-4 h-24 animate-pulse rounded-xl bg-zinc-100" />
           ) : myReplies.length === 0 ? (
             <p className="mt-4 text-sm text-zinc-400">まだ返信はありません</p>
           ) : (
-            <ul className="mt-4 divide-y divide-zinc-100">
-              {myReplies.map((reply) => {
-                const isHidden = reply.status === "hidden";
-                const postTitle = reply.posts?.title ?? "（投稿が見つかりません）";
-                return (
-                  <li key={reply.id} className="py-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {reply.is_best_answer && (
-                        <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                          ベストアンサー
-                        </span>
-                      )}
-                      {isHidden && (
-                        <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500">
-                          非表示
-                        </span>
-                      )}
-                    </div>
-                    <p className={`mt-1 text-sm ${isHidden ? "text-zinc-400 line-through" : "text-zinc-700"}`}>
-                      {truncate(reply.description)}
-                    </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-                      <span>
-                        返信先：
-                        <Link
-                          href={`/posts/${reply.post_id}`}
-                          className="underline-offset-2 transition hover:text-zinc-600 hover:underline"
-                        >
-                          {postTitle}
-                        </Link>
-                      </span>
-                      <time dateTime={reply.created_at}>{formatDateTime(reply.created_at)}</time>
-                      <span className="inline-flex items-center gap-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-                        {reply.likes}
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <>
+              <ul className="mt-4 divide-y divide-zinc-100">
+                {myReplies.slice(0, 5).map((reply) => {
+                  const isHidden = reply.status === "hidden";
+                  const postTitle = reply.posts?.title ?? "（投稿が見つかりません）";
+                  return (
+                    <li key={reply.id} className="py-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {reply.is_best_answer && <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">ベストアンサー</span>}
+                        {isHidden && <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500">非表示</span>}
+                      </div>
+                      <p className={`mt-1 text-sm ${isHidden ? "text-zinc-400 line-through" : "text-zinc-700"}`}>{truncate(reply.description)}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                        <span>返信先：<Link href={`/posts/${reply.post_id}`} className="underline-offset-2 transition hover:text-zinc-600 hover:underline">{postTitle}</Link></span>
+                        <time dateTime={reply.created_at}>{formatDateTime(reply.created_at)}</time>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              {myReplies.length > 5 && (
+                <p className="mt-3 text-xs text-zinc-400">返信一覧は後続Phaseで対応予定です</p>
+              )}
+            </>
           )}
         </div>
+
+        {/* ⑥ フォロー管理 */}
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-zinc-900">フォロー管理</h2>
+
+          {/* フォロー中のユーザー */}
+          <div className="mt-4">
+            <h3 className="text-sm font-medium text-zinc-700">フォロー中のユーザー</h3>
+            {fetching ? (
+              <div className="mt-3 h-16 animate-pulse rounded-xl bg-zinc-100" />
+            ) : followingUsers.length === 0 ? (
+              <p className="mt-3 text-sm text-zinc-400">フォロー中のユーザーはいません</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-zinc-100">
+                {followingUsers.map((fu) => {
+                  const isUnfollowed = unfollowedIds.has(fu.id);
+                  const isLoading = followActionId === fu.id;
+                  return (
+                    <li key={fu.id} className="flex items-center justify-between gap-3 py-3">
+                      <Link href={fu.username ? `/users/${fu.username}` : "#"} className="flex min-w-0 items-center gap-3 transition hover:opacity-80">
+                        <AvatarIcon avatarUrl={fu.avatar_url} name={fu.display_name ?? fu.username ?? "?"} size={36} />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-zinc-900">{fu.display_name ?? fu.username ?? "—"}</p>
+                          {fu.username && <p className="text-xs text-zinc-500">@{fu.username}</p>}
+                        </div>
+                      </Link>
+                      {isUnfollowed ? (
+                        <button type="button" disabled={isLoading} onClick={async () => { if (!user) return; setFollowActionId(fu.id); const { error } = await supabase.from("user_follows").insert({ follower_id: user.id, following_id: fu.id }); if (!error) { setUnfollowedIds((prev) => { const next = new Set(prev); next.delete(fu.id); return next; }); } setFollowActionId(null); }} className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50">
+                          {isLoading ? "処理中…" : "フォローする"}
+                        </button>
+                      ) : (
+                        <button type="button" disabled={isLoading} onClick={async () => { if (!user) return; setFollowActionId(fu.id); const { error } = await supabase.from("user_follows").delete().eq("follower_id", user.id).eq("following_id", fu.id); if (!error) { setUnfollowedIds((prev) => new Set([...prev, fu.id])); } setFollowActionId(null); }} className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">
+                          {isLoading ? "処理中…" : "フォロー解除"}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* フォロー中の投稿 */}
+          <div className="mt-6 border-t border-zinc-100 pt-6">
+            <h3 className="text-sm font-medium text-zinc-700">フォロー中の投稿</h3>
+            {fetching ? (
+              <div className="mt-3 h-16 animate-pulse rounded-xl bg-zinc-100" />
+            ) : followedPosts.length === 0 ? (
+              <p className="mt-3 text-sm text-zinc-400">フォロー中の投稿はありません</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-zinc-100">
+                {followedPosts.map((fp) => {
+                  const postData = fp.posts;
+                  const isUnfollowed = unfollowedPostIds.has(fp.post_id);
+                  const isLoading = postFollowActionId === fp.post_id;
+                  const isHidden = postData?.status === "hidden";
+                  return (
+                    <li key={fp.post_id} className="flex items-start justify-between gap-3 py-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isHidden ? (
+                            <span className="text-sm font-medium text-zinc-400 line-through">{postData?.title ?? "（投稿が見つかりません）"}</span>
+                          ) : (
+                            <Link href={`/posts/${fp.post_id}`} className="text-sm font-medium text-zinc-900 underline-offset-2 transition hover:text-zinc-600 hover:underline">{postData?.title ?? "（投稿が見つかりません）"}</Link>
+                          )}
+                          {isHidden && <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500">非表示</span>}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                          {postData?.category && <CategoryBadge category={postData.category as CategorySlug} />}
+                          <time dateTime={fp.created_at}>{formatDateTime(fp.created_at)}</time>
+                        </div>
+                      </div>
+                      {isUnfollowed ? (
+                        <button type="button" disabled={isLoading} onClick={async () => { if (!user) return; setPostFollowActionId(fp.post_id); const { error } = await supabase.from("post_follows").insert({ user_id: user.id, post_id: fp.post_id }); if (!error) { setUnfollowedPostIds((prev) => { const next = new Set(prev); next.delete(fp.post_id); return next; }); } setPostFollowActionId(null); }} className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50">
+                          {isLoading ? "処理中…" : "フォローする"}
+                        </button>
+                      ) : (
+                        <button type="button" disabled={isLoading} onClick={async () => { if (!user) return; setPostFollowActionId(fp.post_id); const { error } = await supabase.from("post_follows").delete().eq("user_id", user.id).eq("post_id", fp.post_id); if (!error) { setUnfollowedPostIds((prev) => new Set([...prev, fp.post_id])); } setPostFollowActionId(null); }} className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">
+                          {isLoading ? "処理中…" : "フォロー解除"}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );
