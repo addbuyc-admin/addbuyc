@@ -164,7 +164,7 @@ export function ReportButton({ targetType, targetId }: Props) {
 
     if (token === null) {
       // 旧形式のデータ: 取消不可
-      return <span className="text-xs text-zinc-400">通報済み</span>;
+      return <span className="text-xs text-stone-400">通報済み</span>;
     }
 
     // 取消可能
@@ -174,7 +174,7 @@ export function ReportButton({ targetType, targetId }: Props) {
           type="button"
           onClick={handleCancel}
           disabled={cancelling}
-          className="text-xs text-zinc-400 underline-offset-2 transition hover:text-zinc-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+          className="text-xs text-stone-400 underline-offset-2 transition hover:text-stone-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
         >
           {cancelling ? "取消中…" : "通報取消"}
         </button>
@@ -190,26 +190,26 @@ export function ReportButton({ targetType, targetId }: Props) {
   // 未通報 - ログイン案内表示中
   if (showLoginHint) {
     return (
-      <div className="space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-left">
-        <p className="text-xs font-medium text-zinc-800">通報するにはログインが必要です</p>
-        <p className="text-xs text-zinc-500">ログインすると、不適切な投稿や返信を通報できます</p>
+      <div className="space-y-2 rounded-xl border border-stone-200 bg-stone-50 p-3 text-left">
+        <p className="text-xs font-medium text-stone-800">通報するにはログインが必要です</p>
+        <p className="text-xs text-stone-500">ログインすると、不適切な投稿や返信を通報できます</p>
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/signin"
-            className="rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-800"
+            className="rounded-full bg-stone-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-stone-800"
           >
             ログインする
           </Link>
           <Link
             href="/signup"
-            className="text-xs text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline"
+            className="text-xs text-stone-500 underline-offset-2 transition hover:text-stone-700 hover:underline"
           >
             アカウントを作成する
           </Link>
           <button
             type="button"
             onClick={() => setShowLoginHint(false)}
-            className="ml-auto text-xs text-zinc-400 transition hover:text-zinc-600"
+            className="ml-auto text-xs text-stone-400 transition hover:text-stone-600"
           >
             ✕
           </button>
@@ -230,7 +230,7 @@ export function ReportButton({ targetType, targetId }: Props) {
           }
           setIsOpen(true);
         }}
-        className="text-xs text-zinc-400 underline-offset-2 transition hover:text-zinc-600 hover:underline"
+        className="text-xs text-stone-400 underline-offset-2 transition hover:text-stone-600 hover:underline"
       >
         通報する
       </button>
@@ -241,15 +241,15 @@ export function ReportButton({ targetType, targetId }: Props) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-3 space-y-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4"
+      className="mt-3 space-y-3 rounded-xl border border-stone-200 bg-stone-50 p-4"
     >
-      <p className="text-sm font-medium text-zinc-800">通報する</p>
+      <p className="text-sm font-medium text-stone-800">通報する</p>
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-zinc-600">通報理由</label>
+        <label className="text-xs font-medium text-stone-600">通報理由</label>
         <select
           value={reason}
           onChange={(e) => setReason(e.target.value as ReasonValue)}
-          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/10"
+          className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-900/10"
         >
           {REASONS.map((r) => (
             <option key={r.value} value={r.value}>
@@ -259,16 +259,16 @@ export function ReportButton({ targetType, targetId }: Props) {
         </select>
       </div>
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-zinc-600">
+        <label className="text-xs font-medium text-stone-600">
           補足コメント{" "}
-          <span className="font-normal text-zinc-400">（任意）</span>
+          <span className="font-normal text-stone-400">（任意）</span>
         </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
           placeholder="詳細があれば記入してください…"
-          className="w-full resize-none rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/10"
+          className="w-full resize-none rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-400 focus:ring-2 focus:ring-stone-900/10"
         />
       </div>
       {error && (
@@ -280,7 +280,7 @@ export function ReportButton({ targetType, targetId }: Props) {
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-full bg-stone-900 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? "送信中…" : "通報を送信する"}
         </button>
@@ -290,7 +290,7 @@ export function ReportButton({ targetType, targetId }: Props) {
             setIsOpen(false);
             setError(null);
           }}
-          className="text-xs text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline"
+          className="text-xs text-stone-500 underline-offset-2 transition hover:text-stone-700 hover:underline"
         >
           キャンセル
         </button>

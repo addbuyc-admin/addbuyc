@@ -8,7 +8,7 @@ type ThumbnailProps = {
 
 function Thumbnail({ src, onRemove, saving }: ThumbnailProps) {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-zinc-200">
+    <div className="relative overflow-hidden rounded-xl border border-stone-200">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt="" className="aspect-square w-full object-cover" />
       <button
@@ -56,7 +56,7 @@ export function ImageEditor({
 
   return (
     <div className="space-y-3">
-      {title && <p className="text-sm font-semibold text-zinc-700">{title}</p>}
+      {title && <p className="text-sm font-semibold text-stone-700">{title}</p>}
       {total > 0 ? (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
           {existingUrls.map((url, i) => (
@@ -67,10 +67,10 @@ export function ImageEditor({
           ))}
         </div>
       ) : (
-        <p className="text-sm text-zinc-400">画像なし</p>
+        <p className="text-sm text-stone-400">画像なし</p>
       )}
       {remaining > 0 && (
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-stone-300 bg-stone-50 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100">
           <input
             type="file"
             accept="image/*"
@@ -80,7 +80,7 @@ export function ImageEditor({
             disabled={saving}
           />
           + 画像を追加
-          <span className="font-normal text-zinc-400">（残り{remaining}枚）</span>
+          <span className="font-normal text-stone-400">（残り{remaining}枚）</span>
         </label>
       )}
       {error && (
@@ -95,7 +95,7 @@ export function ImageEditor({
               type="button"
               onClick={onSave}
               disabled={saving}
-              className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
+              className="rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {saving ? "保存中…" : "保存する"}
             </button>
@@ -105,7 +105,7 @@ export function ImageEditor({
               type="button"
               onClick={onCancel}
               disabled={saving}
-              className="text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+              className="text-sm text-stone-500 underline-offset-2 transition hover:text-stone-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
             >
               キャンセル
             </button>

@@ -140,17 +140,17 @@ export default function SignUpPage() {
   if (sent) {
     return (
       <div className="mx-auto max-w-sm px-4 py-16">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-lg font-semibold text-zinc-900">
+        <div className="rounded-2xl border border-stone-200 bg-white p-8 text-center shadow-md">
+          <p className="text-lg font-semibold text-stone-900">
             確認メールを送信しました
           </p>
-          <p className="mt-3 text-sm text-zinc-500">
+          <p className="mt-3 text-sm text-stone-500">
             {email}{" "}
             に確認メールを送りました。メール内のリンクをクリックしてサインインを完了してください。
           </p>
           <Link
             href="/signin"
-            className="mt-6 inline-block rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
+            className="mt-6 inline-block rounded-full bg-stone-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-stone-800"
           >
             サインインへ
           </Link>
@@ -162,20 +162,20 @@ export default function SignUpPage() {
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="text-2xl font-semibold tracking-tight text-stone-900">
           サインアップ
         </h1>
-        <p className="mt-2 text-sm text-zinc-500">
+        <p className="mt-2 text-sm text-stone-500">
           新しいアカウントを作成してください
         </p>
       </div>
 
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-5 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
+        className="flex flex-col gap-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-md"
       >
         <div className="space-y-2">
-          <label htmlFor="displayName" className="text-sm font-medium text-zinc-800">
+          <label htmlFor="displayName" className="text-sm font-medium text-stone-800">
             名前
           </label>
           <input
@@ -189,23 +189,23 @@ export default function SignUpPage() {
             required
             autoComplete="name"
             placeholder="例：山田太郎"
-            className={`w-full rounded-xl border bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:ring-2 ${
+            className={`w-full rounded-xl border bg-white px-4 py-3 text-[15px] text-stone-900 outline-none ring-stone-900/10 transition placeholder:text-stone-400 focus:ring-2 ${
               displayNameError
                 ? "border-red-300 focus:border-red-400"
-                : "border-zinc-200 focus:border-zinc-300"
+                : "border-stone-300 focus:border-stone-400"
             }`}
           />
           {displayNameError ? (
             <p className="text-xs text-red-600" role="alert">{displayNameError}</p>
           ) : (
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-stone-400">
               {displayName.trim().length}/{MAX_DISPLAY_NAME}文字
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="username" className="text-sm font-medium text-zinc-800">
+          <label htmlFor="username" className="text-sm font-medium text-stone-800">
             ユーザー名
           </label>
           <input
@@ -216,23 +216,23 @@ export default function SignUpPage() {
             required
             autoComplete="username"
             placeholder="例：taro_yamada"
-            className={`w-full rounded-xl border bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:ring-2 ${
+            className={`w-full rounded-xl border bg-white px-4 py-3 text-[15px] text-stone-900 outline-none ring-stone-900/10 transition placeholder:text-stone-400 focus:ring-2 ${
               usernameError
                 ? "border-red-300 focus:border-red-400"
-                : "border-zinc-200 focus:border-zinc-300"
+                : "border-stone-300 focus:border-stone-400"
             }`}
           />
           {usernameError ? (
             <p className="text-xs text-red-600" role="alert">{usernameError}</p>
           ) : (
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-stone-400">
               3〜20文字・英小文字 / 数字 / アンダースコアのみ
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="email" className="text-sm font-medium text-zinc-800">
+          <label htmlFor="email" className="text-sm font-medium text-stone-800">
             メールアドレス
           </label>
           <input
@@ -242,12 +242,12 @@ export default function SignUpPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
-            className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+            className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 outline-none ring-stone-900/10 transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-2"
           />
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="password" className="text-sm font-medium text-zinc-800">
+          <label htmlFor="password" className="text-sm font-medium text-stone-800">
             パスワード
           </label>
           <input
@@ -257,9 +257,9 @@ export default function SignUpPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="new-password"
-            className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+            className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 outline-none ring-stone-900/10 transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-2"
           />
-          <p className="text-xs text-zinc-400">6文字以上で入力してください</p>
+          <p className="text-xs text-stone-400">6文字以上で入力してください</p>
         </div>
 
         {error && (
@@ -271,16 +271,16 @@ export default function SignUpPage() {
         <button
           type="submit"
           disabled={loading}
-          className="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
+          className="rounded-full bg-stone-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading ? "作成中…" : "アカウントを作成"}
         </button>
 
-        <p className="text-center text-sm text-zinc-500">
+        <p className="text-center text-sm text-stone-500">
           すでにアカウントをお持ちの方は{" "}
           <Link
             href="/signin"
-            className="font-medium text-zinc-900 underline underline-offset-2 hover:text-zinc-600"
+            className="font-medium text-stone-900 underline underline-offset-2 hover:text-amber-700"
           >
             サインイン
           </Link>

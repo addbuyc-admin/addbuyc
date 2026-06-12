@@ -13,7 +13,7 @@ type Props = {
 export function AdvisorRankBadge({ rank, showNone = false }: Props) {
   if (!rank) {
     if (showNone) {
-      return <span className="text-sm text-zinc-400">ランクなし</span>;
+      return <span className="text-sm text-stone-400">ランクなし</span>;
     }
     return null;
   }
