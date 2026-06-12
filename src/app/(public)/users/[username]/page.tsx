@@ -309,7 +309,7 @@ export default function UserProfilePage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-12">
-        <p className="text-sm text-zinc-400">読み込み中…</p>
+        <p className="text-sm text-stone-400">読み込み中…</p>
       </div>
     );
   }
@@ -317,7 +317,7 @@ export default function UserProfilePage() {
   if (notFound || !profile) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-12">
-        <p className="text-sm text-zinc-500">ユーザーが見つかりません。</p>
+        <p className="text-sm text-stone-500">ユーザーが見つかりません。</p>
       </div>
     );
   }
@@ -327,48 +327,49 @@ export default function UserProfilePage() {
 
   return (
     <>
+    <div className="min-h-screen bg-stone-50">
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
 
       {/* ① プロフィールセクション */}
       <div>
-        <h2 className="mb-4 text-base font-semibold text-zinc-900">プロフィール</h2>
+        <h2 className="mb-4 text-base font-semibold text-stone-800">プロフィール</h2>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <AvatarIcon avatarUrl={profile.avatar_url} name={displayName} size={72} />
             <div>
-              <h1 className="text-xl font-semibold tracking-tight text-zinc-900">{displayName}</h1>
-              <p className="mt-0.5 text-sm text-zinc-500">@{profile.username}</p>
+              <h1 className="text-xl font-bold tracking-tight text-stone-900">{displayName}</h1>
+              <p className="mt-0.5 text-sm text-stone-500">@{profile.username}</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {rank && <AdvisorRankBadge rank={rank} />}
             {!authLoading && currentUser && currentUser.id !== profile.id && (
               isFollowing ? (
-                <button type="button" onClick={handleUnfollowProfile} disabled={followLoading} className="rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-sm font-medium text-zinc-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">フォロー解除</button>
+                <button type="button" onClick={handleUnfollowProfile} disabled={followLoading} className="rounded-full border border-stone-300 bg-white px-4 py-1.5 text-sm font-medium text-stone-600 shadow-sm transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">フォロー解除</button>
               ) : (
-                <button type="button" onClick={handleFollow} disabled={followLoading} className="rounded-full bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-700 disabled:opacity-50">フォローする</button>
+                <button type="button" onClick={handleFollow} disabled={followLoading} className="rounded-full bg-amber-700 px-4 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-amber-600 disabled:opacity-50">フォローする</button>
               )
             )}
           </div>
         </div>
-        <p className="mt-3 text-xs text-zinc-400">
+        <p className="mt-3 text-xs text-stone-400">
           登録日：{new Date(profile.created_at).toLocaleDateString("ja-JP", { year: "numeric", month: "long", timeZone: "Asia/Tokyo" })}
         </p>
         <div className="mt-3 flex items-center gap-6">
           <button type="button" onClick={handleOpenFollowers} className="group text-left">
-            <span className="text-base font-semibold text-zinc-900">{followerCount}</span>
-            <span className="ml-1.5 text-sm text-zinc-500 group-hover:text-zinc-700">フォロワー</span>
+            <span className="text-base font-bold text-stone-900">{followerCount}</span>
+            <span className="ml-1.5 text-sm text-stone-500 transition group-hover:text-amber-600">フォロワー</span>
           </button>
           <button type="button" onClick={handleOpenFollowing} className="group text-left">
-            <span className="text-base font-semibold text-zinc-900">{followingCount}</span>
-            <span className="ml-1.5 text-sm text-zinc-500 group-hover:text-zinc-700">フォロー中</span>
+            <span className="text-base font-bold text-stone-900">{followingCount}</span>
+            <span className="ml-1.5 text-sm text-stone-500 transition group-hover:text-amber-600">フォロー中</span>
           </button>
         </div>
       </div>
 
       {/* ② 自分から */}
       <div>
-        <h2 className="text-base font-semibold text-zinc-900">自分から</h2>
+        <h2 className="text-base font-semibold text-stone-800">自分から</h2>
         <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
           {(
             [
@@ -379,15 +380,15 @@ export default function UserProfilePage() {
               { label: "ベストアンサー", value: null },
             ] as Array<{ label: string; value: number | null; href?: string }>
           ).map(({ label, value, href }) => {
-            const cardClass = "rounded-xl border border-zinc-100 bg-zinc-50 px-2 py-3 text-center";
+            const cardClass = "rounded-xl border border-stone-200 bg-white px-2 py-3 text-center shadow-sm";
             const inner = (
               <>
-                <p className="text-xl font-semibold text-zinc-900">{value !== null ? value : "—"}</p>
-                <p className="mt-0.5 text-[11px] leading-tight text-zinc-500">{label}</p>
+                <p className="text-xl font-bold text-stone-900">{value !== null ? value : "—"}</p>
+                <p className="mt-0.5 text-[11px] leading-tight text-stone-500">{label}</p>
               </>
             );
             return href ? (
-              <Link key={label} href={href} className={`${cardClass} block transition hover:bg-zinc-100`}>{inner}</Link>
+              <Link key={label} href={href} className={`${cardClass} block transition hover:border-amber-200 hover:bg-amber-50`}>{inner}</Link>
             ) : (
               <div key={label} className={cardClass}>{inner}</div>
             );
@@ -397,7 +398,7 @@ export default function UserProfilePage() {
 
       {/* ③ 相手から */}
       <div>
-        <h2 className="text-base font-semibold text-zinc-900">相手から</h2>
+        <h2 className="text-base font-semibold text-stone-800">相手から</h2>
         <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
           {(
             [
@@ -408,39 +409,39 @@ export default function UserProfilePage() {
               { label: "ベストアンサー", value: stats?.best_answer_count ?? 0 },
             ] as Array<{ label: string; value: number | null; href?: string }>
           ).map(({ label, value, href }) => {
-            const cardClass = "rounded-xl border border-zinc-100 bg-zinc-50 px-2 py-3 text-center";
+            const cardClass = "rounded-xl border border-stone-200 bg-white px-2 py-3 text-center shadow-sm";
             const inner = (
               <>
-                <p className="text-xl font-semibold text-zinc-900">{value !== null ? value : "—"}</p>
-                <p className="mt-0.5 text-[11px] leading-tight text-zinc-500">{label}</p>
+                <p className="text-xl font-bold text-stone-900">{value !== null ? value : "—"}</p>
+                <p className="mt-0.5 text-[11px] leading-tight text-stone-500">{label}</p>
               </>
             );
             return href ? (
-              <Link key={label} href={href} className={`${cardClass} block transition hover:bg-zinc-100`}>{inner}</Link>
+              <Link key={label} href={href} className={`${cardClass} block transition hover:border-amber-200 hover:bg-amber-50`}>{inner}</Link>
             ) : (
               <div key={label} className={cardClass}>{inner}</div>
             );
           })}
         </div>
         <div className="mt-4">
-          <Link href="/advisor-ranks" className="text-xs text-zinc-400 underline-offset-2 transition hover:text-zinc-600 hover:underline">アドバイザーランクについて</Link>
+          <Link href="/advisor-ranks" className="text-xs text-stone-400 underline-offset-2 transition hover:text-amber-600 hover:underline">アドバイザーランクについて</Link>
         </div>
       </div>
 
       {/* ④ 最近の投稿 */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-zinc-900">最近の投稿</h2>
+      <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-md">
+        <h2 className="text-base font-semibold text-stone-800">最近の投稿</h2>
         {posts.length === 0 ? (
-          <p className="mt-4 text-sm text-zinc-400">まだ投稿はありません。</p>
+          <p className="mt-4 text-sm text-stone-400">まだ投稿はありません。</p>
         ) : (
-          <ul className="mt-4 divide-y divide-zinc-100">
+          <ul className="mt-4 divide-y divide-stone-100">
             {posts.slice(0, 5).map((post) => (
               <li key={post.id} className="py-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <PostStatusBadge hasBestAnswer={post.hasBestAnswer} />
-                  <Link href={`/posts/${post.id}`} className="text-sm font-medium text-zinc-900 underline-offset-2 transition hover:text-zinc-600 hover:underline">{post.title}</Link>
+                  <Link href={`/posts/${post.id}`} className="text-sm font-medium text-stone-800 underline-offset-2 transition hover:text-amber-700 hover:underline">{post.title}</Link>
                 </div>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-stone-400">
                   <CategoryBadge category={post.category as CategorySlug} />
                   <time dateTime={post.created_at}>{formatDateTime(post.created_at)}</time>
                 </div>
@@ -451,19 +452,19 @@ export default function UserProfilePage() {
       </div>
 
       {/* ⑤ 最近の返信 */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-zinc-900">最近の返信</h2>
+      <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-md">
+        <h2 className="text-base font-semibold text-stone-800">最近の返信</h2>
         {replies.length === 0 ? (
-          <p className="mt-4 text-sm text-zinc-400">まだ返信はありません。</p>
+          <p className="mt-4 text-sm text-stone-400">まだ返信はありません。</p>
         ) : (
-          <ul className="mt-4 divide-y divide-zinc-100">
+          <ul className="mt-4 divide-y divide-stone-100">
             {replies.slice(0, 5).map((reply) => (
               <li key={reply.id} className="py-3">
                 {reply.posts && (
-                  <Link href={`/posts/${reply.post_id}`} className="line-clamp-1 text-xs text-zinc-500 underline-offset-2 hover:text-zinc-800 hover:underline">{reply.posts.title}</Link>
+                  <Link href={`/posts/${reply.post_id}`} className="line-clamp-1 text-xs text-stone-500 underline-offset-2 hover:text-amber-600 hover:underline">{reply.posts.title}</Link>
                 )}
-                <p className="mt-0.5 text-sm text-zinc-700">{truncate(reply.description)}</p>
-                <time className="mt-1 block text-xs text-zinc-400" dateTime={reply.created_at}>{formatDateTime(reply.created_at)}</time>
+                <p className="mt-0.5 text-sm text-stone-700">{truncate(reply.description)}</p>
+                <time className="mt-1 block text-xs text-stone-400" dateTime={reply.created_at}>{formatDateTime(reply.created_at)}</time>
               </li>
             ))}
           </ul>
@@ -471,28 +472,29 @@ export default function UserProfilePage() {
       </div>
 
     </div>
+    </div>
     {/* フォロワーモーダル */}
     {showFollowersModal && (
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
         onClick={() => { setShowFollowersModal(false); setFollowersList([]); }}
       >
         <div
-          className="w-full max-w-sm rounded-2xl bg-white shadow-xl"
+          className="w-full max-w-sm rounded-2xl bg-white shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
-            <h2 className="text-sm font-semibold text-zinc-900">フォロワー</h2>
+          <div className="flex items-center justify-between border-b border-stone-200 px-5 py-4">
+            <h2 className="text-sm font-semibold text-stone-900">フォロワー</h2>
             <div className="flex items-center gap-3">
-              <Link href={`/users/${profile.username}/followers`} onClick={() => { setShowFollowersModal(false); setFollowersList([]); }} className="text-xs text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline">一覧を見る</Link>
-              <button type="button" onClick={() => { setShowFollowersModal(false); setFollowersList([]); }} className="text-sm text-zinc-400 transition hover:text-zinc-700">✕</button>
+              <Link href={`/users/${profile.username}/followers`} onClick={() => { setShowFollowersModal(false); setFollowersList([]); }} className="text-xs text-stone-500 underline-offset-2 transition hover:text-amber-600 hover:underline">一覧を見る</Link>
+              <button type="button" onClick={() => { setShowFollowersModal(false); setFollowersList([]); }} className="text-sm text-stone-400 transition hover:text-stone-700">✕</button>
             </div>
           </div>
-          <ul className="max-h-96 divide-y divide-zinc-100 overflow-y-auto">
+          <ul className="max-h-96 divide-y divide-stone-100 overflow-y-auto">
             {followListLoading ? (
-              <li className="px-5 py-6 text-center text-sm text-zinc-400">読み込み中…</li>
+              <li className="px-5 py-6 text-center text-sm text-stone-400">読み込み中…</li>
             ) : followersList.length === 0 ? (
-              <li className="px-5 py-6 text-center text-sm text-zinc-400">フォロワーはいません</li>
+              <li className="px-5 py-6 text-center text-sm text-stone-400">フォロワーはいません</li>
             ) : followersList.map((u) => {
               const isSelf = u.id === currentUser?.id;
               const isFollowingUser = modalFollowingIds.has(u.id);
@@ -506,17 +508,17 @@ export default function UserProfilePage() {
                   >
                     <AvatarIcon avatarUrl={u.avatar_url} name={u.display_name ?? u.username ?? "?"} size={36} />
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-zinc-900">{u.display_name ?? u.username ?? "—"}</p>
-                      {u.username && <p className="text-xs text-zinc-500">@{u.username}</p>}
+                      <p className="truncate text-sm font-medium text-stone-900">{u.display_name ?? u.username ?? "—"}</p>
+                      {u.username && <p className="text-xs text-stone-500">@{u.username}</p>}
                     </div>
                   </Link>
                   {!authLoading && currentUser && !isSelf && (
                     isFollowingUser ? (
-                      <button type="button" disabled={isModalLoading} onClick={() => handleModalFollowToggle(u.id)} className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">
+                      <button type="button" disabled={isModalLoading} onClick={() => handleModalFollowToggle(u.id)} className="shrink-0 rounded-full border border-stone-300 px-3 py-1 text-xs text-stone-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">
                         {isModalLoading ? "処理中…" : "フォロー解除"}
                       </button>
                     ) : (
-                      <button type="button" disabled={isModalLoading} onClick={() => handleModalFollowToggle(u.id)} className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50">
+                      <button type="button" disabled={isModalLoading} onClick={() => handleModalFollowToggle(u.id)} className="shrink-0 rounded-full bg-amber-700 px-3 py-1 text-xs font-medium text-white shadow-sm transition hover:bg-amber-600 disabled:opacity-50">
                         {isModalLoading ? "処理中…" : "フォローする"}
                       </button>
                     )
@@ -531,25 +533,25 @@ export default function UserProfilePage() {
     {/* フォロー中モーダル */}
     {showFollowingModal && (
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
         onClick={() => { setShowFollowingModal(false); setFollowingList([]); }}
       >
         <div
-          className="w-full max-w-sm rounded-2xl bg-white shadow-xl"
+          className="w-full max-w-sm rounded-2xl bg-white shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
-            <h2 className="text-sm font-semibold text-zinc-900">フォロー中</h2>
+          <div className="flex items-center justify-between border-b border-stone-200 px-5 py-4">
+            <h2 className="text-sm font-semibold text-stone-900">フォロー中</h2>
             <div className="flex items-center gap-3">
-              <Link href={`/users/${profile.username}/following`} onClick={() => { setShowFollowingModal(false); setFollowingList([]); }} className="text-xs text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline">一覧を見る</Link>
-              <button type="button" onClick={() => { setShowFollowingModal(false); setFollowingList([]); }} className="text-sm text-zinc-400 transition hover:text-zinc-700">✕</button>
+              <Link href={`/users/${profile.username}/following`} onClick={() => { setShowFollowingModal(false); setFollowingList([]); }} className="text-xs text-stone-500 underline-offset-2 transition hover:text-amber-600 hover:underline">一覧を見る</Link>
+              <button type="button" onClick={() => { setShowFollowingModal(false); setFollowingList([]); }} className="text-sm text-stone-400 transition hover:text-stone-700">✕</button>
             </div>
           </div>
-          <ul className="max-h-96 divide-y divide-zinc-100 overflow-y-auto">
+          <ul className="max-h-96 divide-y divide-stone-100 overflow-y-auto">
             {followListLoading ? (
-              <li className="px-5 py-6 text-center text-sm text-zinc-400">読み込み中…</li>
+              <li className="px-5 py-6 text-center text-sm text-stone-400">読み込み中…</li>
             ) : followingList.length === 0 ? (
-              <li className="px-5 py-6 text-center text-sm text-zinc-400">フォロー中のユーザーはいません</li>
+              <li className="px-5 py-6 text-center text-sm text-stone-400">フォロー中のユーザーはいません</li>
             ) : followingList.map((u) => {
               const isSelf = u.id === currentUser?.id;
               const isFollowingUser = modalFollowingIds.has(u.id);
@@ -563,17 +565,17 @@ export default function UserProfilePage() {
                   >
                     <AvatarIcon avatarUrl={u.avatar_url} name={u.display_name ?? u.username ?? "?"} size={36} />
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-zinc-900">{u.display_name ?? u.username ?? "—"}</p>
-                      {u.username && <p className="text-xs text-zinc-500">@{u.username}</p>}
+                      <p className="truncate text-sm font-medium text-stone-900">{u.display_name ?? u.username ?? "—"}</p>
+                      {u.username && <p className="text-xs text-stone-500">@{u.username}</p>}
                     </div>
                   </Link>
                   {!authLoading && currentUser && !isSelf && (
                     isFollowingUser ? (
-                      <button type="button" disabled={isModalLoading} onClick={() => handleModalFollowToggle(u.id)} className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">
+                      <button type="button" disabled={isModalLoading} onClick={() => handleModalFollowToggle(u.id)} className="shrink-0 rounded-full border border-stone-300 px-3 py-1 text-xs text-stone-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-50">
                         {isModalLoading ? "処理中…" : "フォロー解除"}
                       </button>
                     ) : (
-                      <button type="button" disabled={isModalLoading} onClick={() => handleModalFollowToggle(u.id)} className="shrink-0 rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50">
+                      <button type="button" disabled={isModalLoading} onClick={() => handleModalFollowToggle(u.id)} className="shrink-0 rounded-full bg-amber-700 px-3 py-1 text-xs font-medium text-white shadow-sm transition hover:bg-amber-600 disabled:opacity-50">
                         {isModalLoading ? "処理中…" : "フォローする"}
                       </button>
                     )
