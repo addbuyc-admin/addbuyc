@@ -1106,7 +1106,7 @@ export default function PostDetailPage() {
         href="/posts"
         className="text-sm font-medium text-stone-500 transition hover:text-stone-900"
       >
-        ← Back to posts
+        ← 相談一覧へ戻る
       </Link>
 
       {loading ? (
@@ -1210,7 +1210,7 @@ export default function PostDetailPage() {
                 <div className="mt-2">
                   <PostStatusBadge hasBestAnswer={replies.some((r) => r.isBestAnswer)} />
                 </div>
-                <div className="mt-3 border-b border-stone-100 pb-4">
+                <div className="mt-3 border-b border-stone-200 pb-4">
                   <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-stone-500">
                     <div className="flex items-center gap-2">
                       <CategoryBadge category={post.category} />
@@ -1229,7 +1229,7 @@ export default function PostDetailPage() {
                           className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${
                             isPostLiked && user?.id
                               ? "border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:bg-rose-100"
-                              : "border-stone-200 bg-stone-50 text-stone-800 hover:border-stone-300 hover:bg-white disabled:border-stone-300 disabled:bg-stone-100 disabled:text-stone-500"
+                              : "border-amber-200 bg-amber-50 text-amber-900 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:border-stone-200 disabled:bg-stone-100 disabled:text-stone-400"
                           }`}
                           aria-label={`おなじ気持ち: ${post.title}`}
                         >
@@ -1313,7 +1313,7 @@ export default function PostDetailPage() {
 
             {/* 削除・編集・通報ボタン */}
             {!editingPost && (
-              <div className="flex items-center justify-between border-t border-stone-100 px-6 py-3">
+              <div className="flex items-center justify-between border-t border-stone-200 px-6 py-4">
                 {user?.id && postUserId && user.id === postUserId ? (
                   <div className="flex items-center gap-3">
                     <button
@@ -1362,9 +1362,9 @@ export default function PostDetailPage() {
             )}
           </article>
 
-          <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-md">
+          <section className="rounded-2xl border border-stone-200 bg-white p-6 shadow-md">
             <h2 className="text-lg font-semibold tracking-tight text-stone-900">
-              Reply to this post
+              返信を書く
             </h2>
             {authLoading ? (
               <div className="mt-4 h-32 animate-pulse rounded-xl bg-stone-100" />
@@ -1442,22 +1442,22 @@ export default function PostDetailPage() {
             )}
           </section>
 
-          <section className="space-y-3">
+          <section className="space-y-4">
             <h2 className="text-lg font-semibold tracking-tight text-stone-900">
-              Replies
+              返信一覧
             </h2>
             {replies.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-6 py-10 text-center text-sm text-stone-500">
-                No replies yet. Be the first to reply.
+                まだ返信はありません。最初の返信をしてみましょう。
               </div>
             ) : (
-              <ul className="space-y-3">
+              <ul className="space-y-4">
                 {replies.map((reply) => (
                   <li
                     key={reply.id}
                     id={`reply-${reply.id}`}
                     className={[
-                      "scroll-mt-20 rounded-2xl border p-4 shadow-sm transition-colors duration-700",
+                      "scroll-mt-20 rounded-2xl border p-5 shadow-md transition-colors duration-700",
                       reply.isBestAnswer ? "border-amber-200" : "border-stone-200",
                       highlightReplyId === reply.id ? "bg-sky-50" : "bg-white",
                     ].join(" ")}
@@ -1526,7 +1526,7 @@ export default function PostDetailPage() {
                               </div>
                             ) : null;
                           })()}
-                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-stone-500">
+                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-stone-400">
                             <div className="flex flex-wrap items-center gap-2">
                               <AvatarIcon
                                 avatarUrl={resolveAvatarUrl(reply.userId, userStats)}
@@ -1572,14 +1572,14 @@ export default function PostDetailPage() {
                                   type="button"
                                   onClick={() => handleLikeReply(reply.id)}
                                   disabled={isSelfLikeReply}
-                                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${
+                                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed ${
                                     isReplyLiked && user?.id
-                                      ? "border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:bg-rose-100"
-                                      : "border-stone-200 bg-stone-50 text-stone-800 hover:border-stone-300 hover:bg-white disabled:border-stone-300 disabled:bg-stone-100 disabled:text-stone-500"
+                                      ? "border-sky-200 bg-sky-50 text-sky-700 hover:border-sky-300 hover:bg-sky-100"
+                                      : "border-stone-200 bg-stone-50 text-stone-700 hover:border-stone-300 hover:bg-white disabled:border-stone-200 disabled:bg-stone-100 disabled:text-stone-400"
                                   }`}
                                   aria-label="いいね"
                                 >
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
                                   <span>{reply.likes}</span>
                                 </button>
                               );
