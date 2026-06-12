@@ -140,11 +140,11 @@ export default function HomePage() {
               </Link>
             </div>
           ) : (
-            <ul className="flex flex-col gap-3">
+            <ul className="flex flex-col gap-4">
               {latestPosts.map((post) => (
                 <li
                   key={post.id}
-                  className="rounded-2xl border border-stone-200 bg-white px-4 py-3 shadow-sm transition hover:shadow-md sm:px-5"
+                  className="rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-md transition hover:shadow-lg sm:px-6"
                 >
                   <div className="flex items-center gap-3">
                     {(post.imageUrls?.[0] ?? post.imageUrl) && (
@@ -155,21 +155,21 @@ export default function HomePage() {
                         className="h-14 w-14 shrink-0 rounded-xl object-cover"
                       />
                     )}
-                    <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+                    <div className="min-w-0 flex-1 flex flex-col gap-2">
                       <Link
                         href={`/posts/${post.id}`}
-                        className="text-base font-semibold tracking-tight text-stone-900 underline-offset-4 hover:underline"
+                        className="text-[15px] font-semibold tracking-tight text-stone-900 underline-offset-4 transition-colors hover:text-amber-700 hover:underline"
                       >
                         {post.title}
                       </Link>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-500">
+                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-stone-400">
                         <CategoryBadge category={post.category} />
                         <PostStatusBadge hasBestAnswer={post.hasBestAnswer} />
                         <time dateTime={post.createdAt}>
                           {formatDateTime(post.createdAt)}
                         </time>
-                        <span className="inline-flex items-center gap-1 text-stone-600">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                        <span className="inline-flex items-center gap-1 text-stone-500">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
                           {post.likes}
                         </span>
                       </div>
