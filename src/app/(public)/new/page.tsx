@@ -168,20 +168,20 @@ export default function NewPostPage() {
       <div className="mb-8">
         <Link
           href="/posts"
-          className="text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
+          className="text-sm font-medium text-stone-500 transition hover:text-stone-900"
         >
           ← 相談一覧へ戻る
         </Link>
-        <h1 className="mt-6 text-3xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-6 text-3xl font-semibold tracking-tight text-stone-900">
           相談を投稿する
         </h1>
-        <p className="mt-2 text-[15px] text-zinc-500">
+        <p className="mt-2 text-[15px] text-stone-500">
           気になる商品・お店・ブランド品について、みんなに聞いてみましょう。
         </p>
       </div>
 
       {authLoading ? (
-        <div className="h-48 animate-pulse rounded-2xl bg-zinc-100" />
+        <div className="h-48 animate-pulse rounded-2xl bg-stone-100" />
       ) : !user ? (
         <LoginPrompt
           message="相談を投稿するにはログインが必要です"
@@ -190,16 +190,16 @@ export default function NewPostPage() {
       ) : (
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
+        className="flex flex-col gap-6 rounded-2xl border border-stone-200 bg-white p-6 shadow-md"
       >
         <div className="space-y-2">
           <label
             htmlFor="category"
-            className="text-sm font-medium text-zinc-800"
+            className="text-sm font-medium text-stone-800"
           >
             カテゴリ
           </label>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-stone-400">
             相談内容に近いカテゴリを選んでください
           </p>
           <select
@@ -207,7 +207,7 @@ export default function NewPostPage() {
             name="category"
             value={category}
             onChange={(e) => setCategory(e.target.value as CategorySlug)}
-            className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition focus:border-zinc-300 focus:ring-2"
+            className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 outline-none ring-stone-900/10 transition focus:border-stone-400 focus:ring-2"
           >
             {CATEGORIES.map((c) => (
               <option key={c.slug} value={c.slug}>
@@ -215,7 +215,7 @@ export default function NewPostPage() {
               </option>
             ))}
           </select>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-stone-400">
             {CATEGORIES.find((c) => c.slug === category)?.description}
           </p>
         </div>
@@ -223,7 +223,7 @@ export default function NewPostPage() {
         <div className="space-y-2">
           <label
             htmlFor="title"
-            className="text-sm font-medium text-zinc-800"
+            className="text-sm font-medium text-stone-800"
           >
             相談タイトル
           </label>
@@ -234,7 +234,7 @@ export default function NewPostPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="例：ルイヴィトンの財布は本物？ / AirPods Proを買うべき？"
-            className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+            className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 outline-none ring-stone-900/10 transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-2"
             autoComplete="off"
           />
         </div>
@@ -242,7 +242,7 @@ export default function NewPostPage() {
         <div className="space-y-2">
           <label
             htmlFor="description"
-            className="text-sm font-medium text-zinc-800"
+            className="text-sm font-medium text-stone-800"
           >
             相談内容
           </label>
@@ -253,17 +253,17 @@ export default function NewPostPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="気になっている点、購入予定の理由、不安な点、比較している商品などを書いてください"
             rows={6}
-            className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+            className="w-full resize-y rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 outline-none ring-stone-900/10 transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-2"
           />
         </div>
 
         <div className="space-y-2">
           <label
             htmlFor="targetUrl"
-            className="text-sm font-medium text-zinc-800"
+            className="text-sm font-medium text-stone-800"
           >
             対象URL{" "}
-            <span className="font-normal text-zinc-400">（任意）</span>
+            <span className="font-normal text-stone-400">（任意）</span>
           </label>
           <input
             id="targetUrl"
@@ -272,22 +272,22 @@ export default function NewPostPage() {
             value={targetUrl}
             onChange={(e) => setTargetUrl(e.target.value)}
             placeholder="https://..."
-            className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+            className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 outline-none ring-stone-900/10 transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-2"
             autoComplete="off"
           />
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-stone-400">
             商品ページ、店舗ページ、公式サイト、フリマ出品ページなどがあれば貼ってください
           </p>
         </div>
 
         <div className="space-y-2">
-          <span className="text-sm font-medium text-zinc-800">
+          <span className="text-sm font-medium text-stone-800">
             画像{" "}
-            <span className="font-normal text-zinc-400">（任意・最大{MAX_IMAGES}枚）</span>
+            <span className="font-normal text-stone-400">（任意・最大{MAX_IMAGES}枚）</span>
           </span>
           <div className="flex flex-col gap-3">
             {imageFiles.length < MAX_IMAGES && (
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50/80 px-6 py-6 text-sm transition hover:border-zinc-300 hover:bg-zinc-50">
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 px-6 py-6 text-sm transition hover:border-stone-400 hover:bg-stone-50">
                 <input
                   type="file"
                   accept="image/*"
@@ -295,8 +295,8 @@ export default function NewPostPage() {
                   className="sr-only"
                   onChange={onFileChange}
                 />
-                <span className="font-medium text-zinc-700">+ 画像を追加</span>
-                <span className="text-zinc-400">（残り{MAX_IMAGES - imageFiles.length}枚）</span>
+                <span className="font-medium text-stone-700">+ 画像を追加</span>
+                <span className="text-stone-400">（残り{MAX_IMAGES - imageFiles.length}枚）</span>
               </label>
             )}
             {imagePreviews.length > 0 && (
@@ -304,7 +304,7 @@ export default function NewPostPage() {
                 {imagePreviews.map((preview, i) => (
                   <div
                     key={i}
-                    className="relative overflow-hidden rounded-xl border border-zinc-200"
+                    className="relative overflow-hidden rounded-xl border border-stone-200"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -337,13 +337,13 @@ export default function NewPostPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
+            className="rounded-full bg-stone-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {submitting ? "投稿中…" : "投稿する"}
           </button>
           <Link
             href="/posts"
-            className="rounded-full border border-zinc-200 bg-white px-6 py-2.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+            className="rounded-full border border-stone-300 bg-white px-6 py-2.5 text-sm font-medium text-stone-800 transition hover:bg-stone-50"
           >
             キャンセル
           </Link>

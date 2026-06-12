@@ -34,13 +34,13 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/90 backdrop-blur-md">
+    <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-4">
         <Link
           href="/"
-          className="text-lg font-semibold tracking-tight text-zinc-900 transition hover:text-zinc-600"
+          className="text-lg font-semibold tracking-tight text-stone-900 transition hover:text-stone-600"
         >
-          AddBuy<span className="text-zinc-500">+</span>C
+          AddBuy<span className="text-amber-600">+</span>C
         </Link>
 
         <nav className="flex items-center gap-3">
@@ -48,7 +48,7 @@ export function Header() {
           <Link
             href="/"
             aria-label="Home"
-            className="text-zinc-600 transition hover:text-zinc-900"
+            className="text-stone-600 transition hover:text-stone-900"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -72,7 +72,7 @@ export function Header() {
             <Link
               href="/dashboard"
               aria-label="Dashboard"
-              className="text-zinc-600 transition hover:text-zinc-900"
+              className="text-stone-600 transition hover:text-stone-900"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -106,7 +106,7 @@ export function Header() {
                     type="button"
                     onClick={() => setMenuOpen((v) => !v)}
                     aria-label="メニューを開く"
-                    className="flex items-center rounded-full ring-offset-1 transition hover:ring-2 hover:ring-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="flex items-center rounded-full ring-offset-1 transition hover:ring-2 hover:ring-stone-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400"
                   >
                     <AvatarIcon
                       avatarUrl={avatarUrl}
@@ -116,13 +116,13 @@ export function Header() {
                   </button>
 
                   {menuOpen && (
-                    <div className="fixed left-4 right-4 top-16 z-50 rounded-2xl border border-zinc-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-10 sm:w-44">
+                    <div className="fixed left-4 right-4 top-16 z-50 rounded-2xl border border-stone-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-10 sm:w-44">
                       <ul className="py-1.5">
                         <li>
                           <Link
                             href="/mypage"
                             onClick={() => setMenuOpen(false)}
-                            className="flex w-full items-center px-4 py-2.5 text-sm text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-900"
+                            className="flex w-full items-center px-4 py-2.5 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-stone-900"
                           >
                             マイページ
                           </Link>
@@ -131,17 +131,17 @@ export function Header() {
                           <Link
                             href="/new"
                             onClick={() => setMenuOpen(false)}
-                            className="flex w-full items-center px-4 py-2.5 text-sm text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-900"
+                            className="flex w-full items-center px-4 py-2.5 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-stone-900"
                           >
                             投稿する
                           </Link>
                         </li>
-                        <li className="mx-3 my-1 border-t border-zinc-100" />
+                        <li className="mx-3 my-1 border-t border-stone-100" />
                         <li>
                           <button
                             type="button"
                             onClick={handleSignOut}
-                            className="flex w-full items-center px-4 py-2.5 text-sm text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-700"
+                            className="flex w-full items-center px-4 py-2.5 text-sm text-stone-500 transition hover:bg-stone-50 hover:text-stone-700"
                           >
                             サインアウト
                           </button>
@@ -155,13 +155,13 @@ export function Header() {
               <>
                 <Link
                   href="/signin"
-                  className="text-sm font-medium text-zinc-600 transition hover:text-zinc-900"
+                  className="text-sm font-medium text-stone-600 transition hover:text-stone-900"
                 >
                   サインイン
                 </Link>
                 <Link
                   href="/new"
-                  className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
+                  className="rounded-full bg-amber-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-amber-600"
                 >
                   New post
                 </Link>

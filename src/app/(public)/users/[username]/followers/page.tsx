@@ -65,7 +65,7 @@ export default function UserFollowersPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-10">
-        <div className="h-48 animate-pulse rounded-2xl bg-zinc-100" />
+        <div className="h-48 animate-pulse rounded-2xl bg-stone-100" />
       </div>
     );
   }
@@ -73,7 +73,7 @@ export default function UserFollowersPage() {
   if (notFound) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-12">
-        <p className="text-sm text-zinc-500">ユーザーが見つかりません。</p>
+        <p className="text-sm text-stone-500">ユーザーが見つかりません。</p>
       </div>
     );
   }
@@ -82,23 +82,23 @@ export default function UserFollowersPage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <Link
         href={`/users/${username}`}
-        className="text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
+        className="text-sm font-medium text-stone-500 transition hover:text-stone-900"
       >
         ← プロフィールに戻る
       </Link>
       <div className="mt-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="text-2xl font-semibold tracking-tight text-stone-900">
           {pageDisplayName}さんのフォロワー
         </h1>
-        <p className="mt-1 text-sm text-zinc-400">{users.length}人</p>
+        <p className="mt-1 text-sm text-stone-400">{users.length}人</p>
       </div>
 
       {users.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-8 py-16 text-center">
-          <p className="text-sm text-zinc-500">フォロワーはいません</p>
+        <div className="mt-8 rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-8 py-16 text-center">
+          <p className="text-sm text-stone-500">フォロワーはいません</p>
         </div>
       ) : (
-        <ul className="mt-6 divide-y divide-zinc-100">
+        <ul className="mt-6 divide-y divide-stone-100">
           {users.map((u) => {
             const href = currentUser && u.id === currentUser.id
               ? "/mypage"
@@ -112,11 +112,11 @@ export default function UserFollowersPage() {
                     size={44}
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-zinc-900">
+                    <p className="truncate text-sm font-medium text-stone-900">
                       {u.display_name ?? u.username ?? "—"}
                     </p>
                     {u.username && (
-                      <p className="text-xs text-zinc-500">@{u.username}</p>
+                      <p className="text-xs text-stone-500">@{u.username}</p>
                     )}
                   </div>
                 </Link>

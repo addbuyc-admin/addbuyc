@@ -80,7 +80,7 @@ export default function MyPageRepliesPage() {
   if (authLoading || fetching) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-10">
-        <div className="h-48 animate-pulse rounded-2xl bg-zinc-100" />
+        <div className="h-48 animate-pulse rounded-2xl bg-stone-100" />
       </div>
     );
   }
@@ -88,10 +88,10 @@ export default function MyPageRepliesPage() {
   if (!user) {
     return (
       <div className="mx-auto max-w-sm px-4 py-16 text-center">
-        <p className="text-sm text-zinc-600">このページを見るにはサインインが必要です。</p>
+        <p className="text-sm text-stone-600">このページを見るにはサインインが必要です。</p>
         <Link
           href="/signin"
-          className="mt-4 inline-block rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
+          className="mt-4 inline-block rounded-full bg-stone-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-stone-800"
         >
           サインインへ
         </Link>
@@ -101,20 +101,20 @@ export default function MyPageRepliesPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <Link href="/mypage" className="text-sm font-medium text-zinc-500 transition hover:text-zinc-900">
+      <Link href="/mypage" className="text-sm font-medium text-stone-500 transition hover:text-stone-900">
         ← プロフィールに戻る
       </Link>
       <div className="mt-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">返信</h1>
-        <p className="mt-1 text-sm text-zinc-400">{replies.length}件</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-stone-900">返信</h1>
+        <p className="mt-1 text-sm text-stone-400">{replies.length}件</p>
       </div>
 
       {replies.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-8 py-16 text-center">
-          <p className="text-sm text-zinc-500">まだ返信はありません</p>
+        <div className="mt-8 rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-8 py-16 text-center">
+          <p className="text-sm text-stone-500">まだ返信はありません</p>
         </div>
       ) : (
-        <ul className="mt-6 divide-y divide-zinc-100">
+        <ul className="mt-6 divide-y divide-stone-100">
           {replies.map((reply) => {
             const isHidden = reply.status === "hidden";
             const postTitle = reply.posts?.title ?? "（投稿タイトルなし）";
@@ -126,22 +126,22 @@ export default function MyPageRepliesPage() {
                 >
                   <div className="flex flex-wrap items-center gap-1.5">
                     {reply.is_best_answer && (
-                      <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                      <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
                         ベストアンサー
                       </span>
                     )}
                     {isHidden && (
-                      <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500">
+                      <span className="inline-flex rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-500">
                         非表示
                       </span>
                     )}
                   </div>
-                  <p className={`mt-1 text-sm leading-relaxed ${isHidden ? "text-zinc-400 line-through" : "text-zinc-700"}`}>
+                  <p className={`mt-1 text-sm leading-relaxed ${isHidden ? "text-stone-400 line-through" : "text-stone-700"}`}>
                     {truncate(reply.description)}
                   </p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-stone-400">
                     <span>
-                      返信先：<span className="text-zinc-500">{postTitle}</span>
+                      返信先：<span className="text-stone-500">{postTitle}</span>
                     </span>
                     <time dateTime={reply.created_at}>{formatDateTime(reply.created_at)}</time>
                   </div>

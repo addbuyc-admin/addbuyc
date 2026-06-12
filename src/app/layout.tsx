@@ -49,7 +49,7 @@ export default function RootLayout({
     <html lang="ja">
       <body
         suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-white font-sans antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-stone-50 font-sans antialiased`}
       >
         <AuthProvider>{children}</AuthProvider>
       </body>
