@@ -160,7 +160,7 @@ export function NotificationBell({ userId }: { userId: string }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="通知"
-        className="relative flex h-8 w-8 items-center justify-center rounded-full text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
+        className="relative flex h-8 w-8 items-center justify-center rounded-full text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
       >
         <span className="relative inline-flex">
           <svg
@@ -189,10 +189,10 @@ export function NotificationBell({ userId }: { userId: string }) {
 
       {/* ドロップダウン */}
       {open && (
-        <div className="fixed left-4 right-4 top-16 z-50 rounded-2xl border border-zinc-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-10 sm:w-80">
+        <div className="fixed left-4 right-4 top-16 z-50 rounded-2xl border border-stone-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-10 sm:w-80">
           {/* ヘッダー */}
-          <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">
               通知
             </p>
             {hasUnread && (
@@ -200,7 +200,7 @@ export function NotificationBell({ userId }: { userId: string }) {
                 type="button"
                 onClick={() => void handleMarkAllRead()}
                 disabled={markingAllRead}
-                className="text-xs font-medium text-zinc-500 transition hover:text-zinc-900 disabled:opacity-50"
+                className="text-xs font-medium text-stone-500 transition hover:text-stone-900 disabled:opacity-50"
               >
                 すべて既読
               </button>
@@ -209,18 +209,18 @@ export function NotificationBell({ userId }: { userId: string }) {
 
           {/* 通知リスト */}
           {notifications.length === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-zinc-400">
+            <p className="px-4 py-6 text-center text-sm text-stone-400">
               通知はありません
             </p>
           ) : (
-            <ul className="max-h-[360px] divide-y divide-zinc-100 overflow-y-auto">
+            <ul className="max-h-[360px] divide-y divide-stone-100 overflow-y-auto">
               {notifications.map((n) => (
                 <li key={n.id}>
                   <button
                     type="button"
                     onClick={() => void handleClickNotification(n)}
-                    className={`w-full px-4 py-3 text-left transition hover:bg-zinc-50 ${
-                      n.read_at === null ? "bg-zinc-50/80" : ""
+                    className={`w-full px-4 py-3 text-left transition hover:bg-stone-50 ${
+                      n.read_at === null ? "bg-amber-50/40" : ""
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -228,13 +228,13 @@ export function NotificationBell({ userId }: { userId: string }) {
                         <p
                           className={`break-words text-sm leading-snug ${
                             n.read_at === null
-                              ? "font-medium text-zinc-900"
-                              : "text-zinc-500"
+                              ? "font-medium text-stone-900"
+                              : "text-stone-500"
                           }`}
                         >
                           {NOTIFICATION_LABEL[n.type] ?? n.type}
                         </p>
-                        <time className="mt-0.5 block text-xs text-zinc-400">
+                        <time className="mt-0.5 block text-xs text-stone-400">
                           {formatDateTime(n.created_at)}
                         </time>
                       </div>
@@ -242,7 +242,7 @@ export function NotificationBell({ userId }: { userId: string }) {
                         <button
                           type="button"
                           onClick={(e) => void handleMarkOneRead(e, n)}
-                          className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium text-zinc-400 ring-1 ring-zinc-200 transition hover:bg-zinc-100 hover:text-zinc-700"
+                          className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium text-stone-400 ring-1 ring-stone-200 transition hover:bg-stone-100 hover:text-stone-700"
                         >
                           既読にする
                         </button>

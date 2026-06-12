@@ -99,7 +99,7 @@ export default function UserRepliesPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-10">
-        <div className="h-48 animate-pulse rounded-2xl bg-zinc-100" />
+        <div className="h-48 animate-pulse rounded-2xl bg-stone-100" />
       </div>
     );
   }
@@ -107,7 +107,7 @@ export default function UserRepliesPage() {
   if (notFound) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-12">
-        <p className="text-sm text-zinc-500">ユーザーが見つかりません。</p>
+        <p className="text-sm text-stone-500">ユーザーが見つかりません。</p>
       </div>
     );
   }
@@ -116,23 +116,23 @@ export default function UserRepliesPage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <Link
         href={`/users/${username}`}
-        className="text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
+        className="text-sm font-medium text-stone-500 transition hover:text-stone-900"
       >
         ← プロフィールに戻る
       </Link>
       <div className="mt-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="text-2xl font-semibold tracking-tight text-stone-900">
           {pageDisplayName}さんの返信
         </h1>
-        <p className="mt-1 text-sm text-zinc-400">{replies.length}件</p>
+        <p className="mt-1 text-sm text-stone-400">{replies.length}件</p>
       </div>
 
       {replies.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-8 py-16 text-center">
-          <p className="text-sm text-zinc-500">まだ返信はありません</p>
+        <div className="mt-8 rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-8 py-16 text-center">
+          <p className="text-sm text-stone-500">まだ返信はありません</p>
         </div>
       ) : (
-        <ul className="mt-6 divide-y divide-zinc-100">
+        <ul className="mt-6 divide-y divide-stone-100">
           {replies.map((reply) => {
             const postTitle = reply.posts?.title ?? "（投稿タイトルなし）";
             return (
@@ -142,16 +142,16 @@ export default function UserRepliesPage() {
                   className="block py-4 transition hover:opacity-75"
                 >
                   {reply.is_best_answer && (
-                    <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                    <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
                       ベストアンサー
                     </span>
                   )}
-                  <p className="mt-1 text-sm leading-relaxed text-zinc-700">
+                  <p className="mt-1 text-sm leading-relaxed text-stone-700">
                     {truncate(reply.description)}
                   </p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-stone-400">
                     <span>
-                      返信先：<span className="text-zinc-500">{postTitle}</span>
+                      返信先：<span className="text-stone-500">{postTitle}</span>
                     </span>
                     <time dateTime={reply.created_at}>{formatDateTime(reply.created_at)}</time>
                   </div>

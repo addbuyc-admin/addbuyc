@@ -50,7 +50,7 @@ export default function MyPageFollowingPage() {
   if (authLoading || fetching) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-10">
-        <div className="h-48 animate-pulse rounded-2xl bg-zinc-100" />
+        <div className="h-48 animate-pulse rounded-2xl bg-stone-100" />
       </div>
     );
   }
@@ -58,10 +58,10 @@ export default function MyPageFollowingPage() {
   if (!user) {
     return (
       <div className="mx-auto max-w-sm px-4 py-16 text-center">
-        <p className="text-sm text-zinc-600">このページを見るにはサインインが必要です。</p>
+        <p className="text-sm text-stone-600">このページを見るにはサインインが必要です。</p>
         <Link
           href="/signin"
-          className="mt-4 inline-block rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
+          className="mt-4 inline-block rounded-full bg-stone-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-stone-800"
         >
           サインインへ
         </Link>
@@ -71,20 +71,20 @@ export default function MyPageFollowingPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <Link href="/mypage" className="text-sm font-medium text-zinc-500 transition hover:text-zinc-900">
+      <Link href="/mypage" className="text-sm font-medium text-stone-500 transition hover:text-stone-900">
         ← プロフィールに戻る
       </Link>
       <div className="mt-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">フォロー中</h1>
-        <p className="mt-1 text-sm text-zinc-400">{users.length}人</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-stone-900">フォロー中</h1>
+        <p className="mt-1 text-sm text-stone-400">{users.length}人</p>
       </div>
 
       {users.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-8 py-16 text-center">
-          <p className="text-sm text-zinc-500">フォロー中のユーザーはいません</p>
+        <div className="mt-8 rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-8 py-16 text-center">
+          <p className="text-sm text-stone-500">フォロー中のユーザーはいません</p>
         </div>
       ) : (
-        <ul className="mt-6 divide-y divide-zinc-100">
+        <ul className="mt-6 divide-y divide-stone-100">
           {users.map((u) => {
             const isUnfollowed = unfollowedIds.has(u.id);
             const isLoading = actionId === u.id;
@@ -98,11 +98,11 @@ export default function MyPageFollowingPage() {
                     size={44}
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-zinc-900">
+                    <p className="truncate text-sm font-medium text-stone-900">
                       {u.display_name ?? u.username ?? "—"}
                     </p>
                     {u.username && (
-                      <p className="text-xs text-zinc-500">@{u.username}</p>
+                      <p className="text-xs text-stone-500">@{u.username}</p>
                     )}
                   </div>
                 </Link>
@@ -124,7 +124,7 @@ export default function MyPageFollowingPage() {
                       }
                       setActionId(null);
                     }}
-                    className="shrink-0 rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50"
+                    className="shrink-0 rounded-full bg-amber-700 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-amber-600 disabled:opacity-50"
                   >
                     {isLoading ? "処理中…" : "フォローする"}
                   </button>
@@ -144,7 +144,7 @@ export default function MyPageFollowingPage() {
                       }
                       setActionId(null);
                     }}
-                    className="shrink-0 rounded-full border border-zinc-200 px-4 py-1.5 text-xs text-zinc-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                    className="shrink-0 rounded-full border border-stone-300 px-4 py-1.5 text-xs text-stone-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                   >
                     {isLoading ? "処理中…" : "フォロー解除"}
                   </button>

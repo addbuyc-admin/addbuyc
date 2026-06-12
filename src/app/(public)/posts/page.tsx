@@ -91,18 +91,18 @@ function PostListWithFilter() {
           type="text"
           defaultValue={q}
           placeholder="タイトル・本文で検索…"
-          className="min-w-0 flex-1 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-zinc-300 focus:bg-white focus:ring-2 focus:ring-zinc-900/10"
+          className="min-w-0 flex-1 rounded-full border border-stone-300 bg-stone-50 px-4 py-2 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:bg-white focus:ring-2 focus:ring-stone-900/10"
         />
         <button
           type="submit"
-          className="rounded-full bg-zinc-900 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
+          className="rounded-full bg-stone-900 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-stone-800"
         >
           検索
         </button>
         {q && (
           <Link
             href={buildHref({ category: activeCategory, status: activeStatus, sort: activeSort })}
-            className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+            className="inline-flex items-center rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
           >
             クリア
           </Link>
@@ -116,8 +116,8 @@ function PostListWithFilter() {
             href={buildHref({ q, status: activeStatus, sort: activeSort })}
             className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition ${
               !activeCategory
-                ? "bg-zinc-900 text-white"
-                : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                ? "bg-stone-900 text-white"
+                : "bg-stone-100 text-stone-700 hover:bg-stone-200"
             }`}
           >
             すべて
@@ -128,7 +128,7 @@ function PostListWithFilter() {
               href={buildHref({ category: cat.slug, q, status: activeStatus, sort: activeSort })}
               className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition ${
                 activeCategory === cat.slug
-                  ? "bg-zinc-900 text-white"
+                  ? "bg-stone-900 text-white"
                   : `${cat.badgeClassName} hover:opacity-80`
               }`}
             >
@@ -141,7 +141,7 @@ function PostListWithFilter() {
       {/* ステータス・並び順 */}
       <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="flex items-center gap-2">
-          <span className="shrink-0 text-xs font-medium text-zinc-500">ステータス</span>
+          <span className="shrink-0 text-xs font-medium text-stone-500">ステータス</span>
           <div className="flex gap-1">
             {STATUS_OPTIONS.map(({ value, label }) => (
               <Link
@@ -149,8 +149,8 @@ function PostListWithFilter() {
                 href={buildHref({ category: activeCategory, q, status: value, sort: activeSort })}
                 className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition ${
                   activeStatus === value
-                    ? "bg-zinc-900 text-white"
-                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                    ? "bg-stone-900 text-white"
+                    : "bg-stone-100 text-stone-600 hover:bg-stone-200"
                 }`}
               >
                 {label}
@@ -160,7 +160,7 @@ function PostListWithFilter() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="shrink-0 text-xs font-medium text-zinc-500">並び順</span>
+          <span className="shrink-0 text-xs font-medium text-stone-500">並び順</span>
           <div className="flex gap-1">
             {SORT_OPTIONS.map(({ value, label }) => (
               <Link
@@ -168,8 +168,8 @@ function PostListWithFilter() {
                 href={buildHref({ category: activeCategory, q, status: activeStatus, sort: value })}
                 className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition ${
                   activeSort === value
-                    ? "bg-zinc-900 text-white"
-                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                    ? "bg-stone-900 text-white"
+                    : "bg-stone-100 text-stone-600 hover:bg-stone-200"
                 }`}
               >
                 {label}
@@ -183,27 +183,27 @@ function PostListWithFilter() {
       {!ready ? (
         <ul className="flex flex-col gap-4">
           {[1, 2, 3].map((i) => (
-            <li key={i} className="h-20 animate-pulse rounded-2xl bg-zinc-100" />
+            <li key={i} className="h-20 animate-pulse rounded-2xl bg-stone-100" />
           ))}
         </ul>
       ) : sorted.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-8 py-16 text-center">
+        <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-8 py-16 text-center">
           {hasFilter ? (
             <>
-              <p className="text-zinc-600">該当する相談はありません。</p>
+              <p className="text-stone-600">該当する相談はありません。</p>
               <Link
                 href="/posts"
-                className="mt-4 inline-block text-sm font-medium text-zinc-900 underline underline-offset-4"
+                className="mt-4 inline-block text-sm font-medium text-stone-900 underline underline-offset-4"
               >
                 絞り込みをクリア
               </Link>
             </>
           ) : (
             <>
-              <p className="text-zinc-600">まだ投稿がありません。</p>
+              <p className="text-stone-600">まだ投稿がありません。</p>
               <Link
                 href="/new"
-                className="mt-4 inline-block text-sm font-medium text-zinc-900 underline underline-offset-4"
+                className="mt-4 inline-block text-sm font-medium text-stone-900 underline underline-offset-4"
               >
                 最初の相談を投稿する
               </Link>
@@ -215,7 +215,7 @@ function PostListWithFilter() {
           {sorted.map((post) => (
             <li
               key={post.id}
-              className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm transition hover:shadow-md sm:px-5"
+              className="rounded-2xl border border-stone-200 bg-white px-4 py-3 shadow-sm transition hover:shadow-md sm:px-5"
             >
               <div className="flex items-center gap-3">
                 {(post.imageUrls?.[0] ?? post.imageUrl) && (
@@ -229,17 +229,17 @@ function PostListWithFilter() {
                 <div className="min-w-0 flex-1 flex flex-col gap-1.5">
                   <Link
                     href={`/posts/${post.id}`}
-                    className="text-base font-semibold tracking-tight text-zinc-900 underline-offset-4 hover:underline"
+                    className="text-base font-semibold tracking-tight text-stone-900 underline-offset-4 hover:underline"
                   >
                     {post.title}
                   </Link>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-500">
                     <CategoryBadge category={post.category} />
                     <PostStatusBadge hasBestAnswer={post.hasBestAnswer} />
                     <time dateTime={post.createdAt}>
                       {formatDateTime(post.createdAt)}
                     </time>
-                    <span className="inline-flex items-center gap-1 text-zinc-600">
+                    <span className="inline-flex items-center gap-1 text-stone-600">
                       <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
                       {post.likes}
                     </span>
@@ -259,19 +259,19 @@ export default function PostsPage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <div className="mb-10 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wider text-zinc-400">
+          <p className="text-sm font-medium uppercase tracking-wider text-stone-400">
             Community
           </p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">
             みんなの相談
           </h1>
-          <p className="mt-2 max-w-md text-[15px] text-zinc-500">
+          <p className="mt-2 max-w-md text-[15px] text-stone-500">
             カテゴリやキーワードで気になる相談を探せます。
           </p>
         </div>
         <Link
           href="/new"
-          className="inline-flex shrink-0 items-center justify-center rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
+          className="inline-flex shrink-0 items-center justify-center rounded-full bg-amber-700 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-amber-600"
         >
           相談を投稿する
         </Link>
@@ -281,7 +281,7 @@ export default function PostsPage() {
         fallback={
           <ul className="flex flex-col gap-4">
             {[1, 2, 3].map((i) => (
-              <li key={i} className="h-20 animate-pulse rounded-2xl bg-zinc-100" />
+              <li key={i} className="h-20 animate-pulse rounded-2xl bg-stone-100" />
             ))}
           </ul>
         }

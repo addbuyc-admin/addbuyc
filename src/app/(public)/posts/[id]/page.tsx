@@ -1104,41 +1104,41 @@ export default function PostDetailPage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <Link
         href="/posts"
-        className="text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
+        className="text-sm font-medium text-stone-500 transition hover:text-stone-900"
       >
         ← Back to posts
       </Link>
 
       {loading ? (
-        <div className="mt-6 h-52 animate-pulse rounded-2xl bg-zinc-100" />
+        <div className="mt-6 h-52 animate-pulse rounded-2xl bg-stone-100" />
       ) : error ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-8 py-16 text-center">
-          <p className="text-zinc-600">{error}</p>
+        <div className="mt-6 rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-8 py-16 text-center">
+          <p className="text-stone-600">{error}</p>
         </div>
       ) : post ? (
         <div className="mt-6 space-y-6">
-          <article className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <article className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-md">
             {editingPost ? (
               <div className="p-6 space-y-4">
-                <p className="text-sm font-semibold text-zinc-700">投稿を編集</p>
+                <p className="text-sm font-semibold text-stone-700">投稿を編集</p>
                 <div className="space-y-2">
-                  <label htmlFor="editTitle" className="text-sm font-medium text-zinc-800">タイトル</label>
+                  <label htmlFor="editTitle" className="text-sm font-medium text-stone-800">タイトル</label>
                   <input
                     id="editTitle"
                     type="text"
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
                     maxLength={100}
-                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+                    className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 outline-none ring-stone-900/10 transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-2"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="editCategory" className="text-sm font-medium text-zinc-800">カテゴリ</label>
+                  <label htmlFor="editCategory" className="text-sm font-medium text-stone-800">カテゴリ</label>
                   <select
                     id="editCategory"
                     value={editCategory}
                     onChange={(e) => setEditCategory(e.target.value as CategorySlug)}
-                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/10"
+                    className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-900/10"
                   >
                     {CATEGORIES.map((c) => (
                       <option key={c.slug} value={c.slug}>{c.label}</option>
@@ -1146,8 +1146,8 @@ export default function PostDetailPage() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="editTargetUrl" className="text-sm font-medium text-zinc-800">
-                    対象URL <span className="font-normal text-zinc-400">（任意）</span>
+                  <label htmlFor="editTargetUrl" className="text-sm font-medium text-stone-800">
+                    対象URL <span className="font-normal text-stone-400">（任意）</span>
                   </label>
                   <input
                     id="editTargetUrl"
@@ -1155,21 +1155,21 @@ export default function PostDetailPage() {
                     value={editTargetUrl}
                     onChange={(e) => setEditTargetUrl(e.target.value)}
                     placeholder="https://..."
-                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+                    className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 outline-none ring-stone-900/10 transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-2"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="editDescription" className="text-sm font-medium text-zinc-800">相談内容</label>
+                  <label htmlFor="editDescription" className="text-sm font-medium text-stone-800">相談内容</label>
                   <textarea
                     id="editDescription"
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                     rows={6}
-                    className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+                    className="w-full resize-y rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 outline-none ring-stone-900/10 transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-2"
                   />
                 </div>
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-zinc-800">画像</p>
+                  <p className="text-sm font-medium text-stone-800">画像</p>
                   <ImageEditor
                     existingUrls={editPostImageUrls}
                     newPreviews={newPostImagePreviews}
@@ -1188,7 +1188,7 @@ export default function PostDetailPage() {
                     type="button"
                     onClick={handleSavePost}
                     disabled={savingPost}
-                    className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {savingPost ? "保存中…" : "保存する"}
                   </button>
@@ -1196,7 +1196,7 @@ export default function PostDetailPage() {
                     type="button"
                     onClick={handleCancelEditPost}
                     disabled={savingPost}
-                    className="text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                    className="text-sm text-stone-500 underline-offset-2 transition hover:text-stone-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     キャンセル
                   </button>
@@ -1204,14 +1204,14 @@ export default function PostDetailPage() {
               </div>
             ) : (
               <div className="p-6">
-                <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
+                <h1 className="text-3xl font-semibold tracking-tight text-stone-900">
                   {post.title}
                 </h1>
                 <div className="mt-2">
                   <PostStatusBadge hasBestAnswer={replies.some((r) => r.isBestAnswer)} />
                 </div>
-                <div className="mt-3 border-b border-zinc-100 pb-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
+                <div className="mt-3 border-b border-stone-100 pb-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-stone-500">
                     <div className="flex items-center gap-2">
                       <CategoryBadge category={post.category} />
                       <time dateTime={post.createdAt}>
@@ -1229,7 +1229,7 @@ export default function PostDetailPage() {
                           className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${
                             isPostLiked && user?.id
                               ? "border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:bg-rose-100"
-                              : "border-zinc-200 bg-zinc-50 text-zinc-800 hover:border-zinc-300 hover:bg-white disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                              : "border-stone-200 bg-stone-50 text-stone-800 hover:border-stone-300 hover:bg-white disabled:border-stone-300 disabled:bg-stone-100 disabled:text-stone-500"
                           }`}
                           aria-label={`おなじ気持ち: ${post.title}`}
                         >
@@ -1240,15 +1240,15 @@ export default function PostDetailPage() {
                     })()}
                   </div>
                   {showLikeLoginHint && !user?.id && (
-                    <p className="mt-1.5 text-right text-xs text-zinc-500">
+                    <p className="mt-1.5 text-right text-xs text-stone-500">
                       「おなじ気持ち」するには{" "}
-                      <Link href="/signin" className="underline underline-offset-2 hover:text-zinc-700">
+                      <Link href="/signin" className="underline underline-offset-2 hover:text-stone-700">
                         ログイン
                       </Link>
                       {" "}が必要です
                     </p>
                   )}
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-stone-500">
                     <AvatarIcon
                       avatarUrl={resolveAvatarUrl(postUserId, userStats)}
                       name={resolveDisplayName(postUserId, userStats)}
@@ -1259,7 +1259,7 @@ export default function PostDetailPage() {
                       {(() => {
                         const href = resolveProfileHref(postUserId, user?.id, userStats);
                         return href ? (
-                          <Link href={href} className="underline-offset-2 hover:text-zinc-700 hover:underline">
+                          <Link href={href} className="underline-offset-2 hover:text-amber-600 hover:underline">
                             {resolveDisplayName(postUserId, userStats)}
                           </Link>
                         ) : (
@@ -1273,8 +1273,8 @@ export default function PostDetailPage() {
                         onClick={() => handleFollowToggle(postUserId)}
                         disabled={followActionUserId === postUserId}
                         className={followedUserIds.has(postUserId)
-                          ? "rounded-full border border-zinc-200 px-2.5 py-0.5 text-xs font-medium text-zinc-500 transition hover:border-red-200 hover:text-red-500 disabled:opacity-50"
-                          : "rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-white transition hover:bg-zinc-600 disabled:opacity-50"
+                          ? "rounded-full border border-stone-200 px-2.5 py-0.5 text-xs font-medium text-stone-500 transition hover:border-red-200 hover:text-red-500 disabled:opacity-50"
+                          : "rounded-full bg-amber-700 px-2.5 py-0.5 text-xs font-medium text-white transition hover:bg-amber-600 disabled:opacity-50"
                         }
                       >
                         {followActionUserId === postUserId ? "…" : followedUserIds.has(postUserId) ? "フォロー中" : "フォローする"}
@@ -1284,7 +1284,7 @@ export default function PostDetailPage() {
                 </div>
                 {post.targetUrl && (
                   <div className="mt-4">
-                    <p className="text-xs font-medium text-zinc-500">対象URL</p>
+                    <p className="text-xs font-medium text-stone-500">対象URL</p>
                     <a
                       href={post.targetUrl}
                       target="_blank"
@@ -1295,7 +1295,7 @@ export default function PostDetailPage() {
                     </a>
                   </div>
                 )}
-                <p className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
+                <p className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-stone-700">
                   <LinkedText text={post.description} />
                 </p>
               </div>
@@ -1305,7 +1305,7 @@ export default function PostDetailPage() {
             {!editingPost && (() => {
               const urls = resolveImageUrls(post.imageUrls, post.imageUrl);
               return urls.length > 0 ? (
-                <div className="border-t border-zinc-200 overflow-hidden">
+                <div className="border-t border-stone-200 overflow-hidden">
                   <ImageGrid urls={urls} onClickImage={(url) => openLightbox(urls, url)} />
                 </div>
               ) : null;
@@ -1313,7 +1313,7 @@ export default function PostDetailPage() {
 
             {/* 削除・編集・通報ボタン */}
             {!editingPost && (
-              <div className="flex items-center justify-between border-t border-zinc-100 px-6 py-3">
+              <div className="flex items-center justify-between border-t border-stone-100 px-6 py-3">
                 {user?.id && postUserId && user.id === postUserId ? (
                   <div className="flex items-center gap-3">
                     <button
@@ -1327,7 +1327,7 @@ export default function PostDetailPage() {
                     <button
                       type="button"
                       onClick={handleEditPost}
-                      className="text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline"
+                      className="text-sm text-stone-500 underline-offset-2 transition hover:text-stone-700 hover:underline"
                     >
                       編集
                     </button>
@@ -1344,8 +1344,8 @@ export default function PostDetailPage() {
                         disabled={postFollowLoading}
                         className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
                           isPostFollowing
-                            ? "border-zinc-200 bg-white text-zinc-500 hover:border-red-200 hover:text-red-500"
-                            : "border-zinc-800 bg-zinc-800 text-white hover:bg-zinc-600"
+                            ? "border-stone-200 bg-white text-stone-500 hover:border-red-200 hover:text-red-500"
+                            : "border-amber-700 bg-amber-700 text-white hover:bg-amber-600"
                         }`}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill={isPostFollowing ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1362,12 +1362,12 @@ export default function PostDetailPage() {
             )}
           </article>
 
-          <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold tracking-tight text-zinc-900">
+          <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-md">
+            <h2 className="text-lg font-semibold tracking-tight text-stone-900">
               Reply to this post
             </h2>
             {authLoading ? (
-              <div className="mt-4 h-32 animate-pulse rounded-xl bg-zinc-100" />
+              <div className="mt-4 h-32 animate-pulse rounded-xl bg-stone-100" />
             ) : !user ? (
               <div className="mt-4">
                 <LoginPrompt
@@ -1382,11 +1382,11 @@ export default function PostDetailPage() {
                 onChange={(e) => setReplyBody(e.target.value)}
                 rows={4}
                 placeholder="返信を書く…"
-                className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+                className="w-full resize-y rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 outline-none ring-stone-900/10 transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-2"
               />
               {/* 画像追加 */}
               {replyImageFiles.length < MAX_REPLY_IMAGES && (
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-stone-300 bg-stone-50 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100">
                   <input
                     type="file"
                     accept="image/*"
@@ -1395,7 +1395,7 @@ export default function PostDetailPage() {
                     onChange={onReplyFileChange}
                   />
                   + 画像を追加
-                  <span className="font-normal text-zinc-400">
+                  <span className="font-normal text-stone-400">
                     （残り{MAX_REPLY_IMAGES - replyImageFiles.length}枚）
                   </span>
                 </label>
@@ -1406,7 +1406,7 @@ export default function PostDetailPage() {
                   {replyImagePreviews.map((preview, i) => (
                     <div
                       key={i}
-                      className="relative overflow-hidden rounded-xl border border-zinc-200"
+                      className="relative overflow-hidden rounded-xl border border-stone-200"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -1434,7 +1434,7 @@ export default function PostDetailPage() {
               <button
                 type="submit"
                 disabled={submittingReply}
-                className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
+                className="rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {submittingReply ? "投稿中..." : "返信する"}
               </button>
@@ -1443,11 +1443,11 @@ export default function PostDetailPage() {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-semibold tracking-tight text-zinc-900">
+            <h2 className="text-lg font-semibold tracking-tight text-stone-900">
               Replies
             </h2>
             {replies.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-6 py-10 text-center text-sm text-zinc-500">
+              <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-6 py-10 text-center text-sm text-stone-500">
                 No replies yet. Be the first to reply.
               </div>
             ) : (
@@ -1458,11 +1458,11 @@ export default function PostDetailPage() {
                     id={`reply-${reply.id}`}
                     className={[
                       "scroll-mt-20 rounded-2xl border p-4 shadow-sm transition-colors duration-700",
-                      reply.isBestAnswer ? "border-amber-200" : "border-zinc-200",
+                      reply.isBestAnswer ? "border-amber-200" : "border-stone-200",
                       highlightReplyId === reply.id ? "bg-sky-50" : "bg-white",
                     ].join(" ")}
                   >
-                    <div className={`border-l-2 pl-4 ${reply.isBestAnswer ? "border-amber-300" : "border-zinc-200"}`}>
+                    <div className={`border-l-2 pl-4 ${reply.isBestAnswer ? "border-amber-300" : "border-stone-200"}`}>
                       {reply.isBestAnswer && (
                         <div className="mb-4">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1479,7 +1479,7 @@ export default function PostDetailPage() {
                             value={editReplyBody}
                             onChange={(e) => setEditReplyBody(e.target.value)}
                             rows={4}
-                            className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 outline-none ring-zinc-900/10 transition placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-2"
+                            className="w-full resize-y rounded-xl border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 outline-none ring-stone-900/10 transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-2"
                           />
                           <ImageEditor
                             existingUrls={editReplyImageUrls}
@@ -1498,7 +1498,7 @@ export default function PostDetailPage() {
                               type="button"
                               onClick={() => handleSaveReply(reply.id)}
                               disabled={savingReplyId === reply.id}
-                              className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
+                              className="rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-70"
                             >
                               {savingReplyId === reply.id ? "保存中…" : "保存する"}
                             </button>
@@ -1506,7 +1506,7 @@ export default function PostDetailPage() {
                               type="button"
                               onClick={handleCancelEditReply}
                               disabled={savingReplyId === reply.id}
-                              className="text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                              className="text-sm text-stone-500 underline-offset-2 transition hover:text-stone-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               キャンセル
                             </button>
@@ -1514,19 +1514,19 @@ export default function PostDetailPage() {
                         </div>
                       ) : (
                         <>
-                          <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
+                          <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-stone-700">
                             <LinkedText text={reply.description} />
                           </p>
                           {/* 返信画像 */}
                           {(() => {
                             const urls = resolveImageUrls(reply.imageUrls, reply.imageUrl);
                             return urls.length > 0 ? (
-                              <div className="mt-3 overflow-hidden rounded-xl border border-zinc-200">
+                              <div className="mt-3 overflow-hidden rounded-xl border border-stone-200">
                                 <ImageGrid urls={urls} onClickImage={(url) => openLightbox(urls, url)} />
                               </div>
                             ) : null;
                           })()}
-                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
+                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-stone-500">
                             <div className="flex flex-wrap items-center gap-2">
                               <AvatarIcon
                                 avatarUrl={resolveAvatarUrl(reply.userId, userStats)}
@@ -1538,7 +1538,7 @@ export default function PostDetailPage() {
                                 {(() => {
                                   const href = resolveProfileHref(reply.userId, user?.id, userStats);
                                   return href ? (
-                                    <Link href={href} className="underline-offset-2 hover:text-zinc-700 hover:underline">
+                                    <Link href={href} className="underline-offset-2 hover:text-amber-600 hover:underline">
                                       {resolveDisplayName(reply.userId, userStats)}
                                     </Link>
                                   ) : (
@@ -1553,8 +1553,8 @@ export default function PostDetailPage() {
                                   onClick={() => handleFollowToggle(reply.userId!)}
                                   disabled={followActionUserId === reply.userId}
                                   className={followedUserIds.has(reply.userId!)
-                                    ? "rounded-full border border-zinc-200 px-2.5 py-0.5 text-xs font-medium text-zinc-500 transition hover:border-red-200 hover:text-red-500 disabled:opacity-50"
-                                    : "rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-white transition hover:bg-zinc-600 disabled:opacity-50"
+                                    ? "rounded-full border border-stone-200 px-2.5 py-0.5 text-xs font-medium text-stone-500 transition hover:border-red-200 hover:text-red-500 disabled:opacity-50"
+                                    : "rounded-full bg-amber-700 px-2.5 py-0.5 text-xs font-medium text-white transition hover:bg-amber-600 disabled:opacity-50"
                                   }
                                 >
                                   {followActionUserId === reply.userId ? "…" : followedUserIds.has(reply.userId!) ? "フォロー中" : "フォローする"}
@@ -1575,7 +1575,7 @@ export default function PostDetailPage() {
                                   className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${
                                     isReplyLiked && user?.id
                                       ? "border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:bg-rose-100"
-                                      : "border-zinc-200 bg-zinc-50 text-zinc-800 hover:border-zinc-300 hover:bg-white disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                                      : "border-stone-200 bg-stone-50 text-stone-800 hover:border-stone-300 hover:bg-white disabled:border-stone-300 disabled:bg-stone-100 disabled:text-stone-500"
                                   }`}
                                   aria-label="いいね"
                                 >
@@ -1586,9 +1586,9 @@ export default function PostDetailPage() {
                             })()}
                           </div>
                           {likeLoginHintReplyId === reply.id && !user?.id && (
-                            <p className="mt-1.5 text-right text-xs text-zinc-500">
+                            <p className="mt-1.5 text-right text-xs text-stone-500">
                               いいねするには{" "}
-                              <Link href="/signin" className="underline underline-offset-2 hover:text-zinc-700">
+                              <Link href="/signin" className="underline underline-offset-2 hover:text-stone-700">
                                 ログイン
                               </Link>
                               {" "}が必要です
@@ -1609,7 +1609,7 @@ export default function PostDetailPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleEditReply(reply.id)}
-                                    className="text-sm text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline"
+                                    className="text-sm text-stone-500 underline-offset-2 transition hover:text-stone-700 hover:underline"
                                   >
                                     編集
                                   </button>
