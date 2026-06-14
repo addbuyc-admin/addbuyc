@@ -116,32 +116,39 @@ export function Header() {
                   </button>
 
                   {menuOpen && (
-                    <div className="fixed left-4 right-4 top-16 z-50 rounded-2xl border border-stone-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-10 sm:w-44">
+                    <div className="fixed left-4 right-4 top-16 z-50 rounded-2xl border border-stone-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-10 sm:w-52">
                       <ul className="py-1.5">
                         <li>
-                          <Link
-                            href="/mypage"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex w-full items-center px-4 py-2.5 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-stone-900"
-                          >
+                          <Link href="/mypage" onClick={() => setMenuOpen(false)} className="flex w-full items-center px-4 py-2.5 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-stone-900">
                             マイページ
                           </Link>
                         </li>
                         <li>
-                          <Link
-                            href="/new"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex w-full items-center px-4 py-2.5 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-stone-900"
-                          >
-                            投稿する
+                          <Link href="/mypage/activity" onClick={() => setMenuOpen(false)} className="flex w-full items-center px-4 py-2.5 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-stone-900">
+                            アクティビティ
                           </Link>
                         </li>
-                        <li className="mx-3 my-1 border-t border-stone-100" />
+                        <li>
+                          <Link href="/mypage/privacy" onClick={() => setMenuOpen(false)} className="flex w-full items-center px-4 py-2.5 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-stone-900">
+                            プライバシー
+                          </Link>
+                        </li>
+                        <li>
+                          <Link href="/mypage/settings" onClick={() => setMenuOpen(false)} className="flex w-full items-center px-4 py-2.5 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-stone-900">
+                            設定
+                          </Link>
+                        </li>
+                        <li>
+                          <Link href="/help" onClick={() => setMenuOpen(false)} className="flex w-full items-center px-4 py-2.5 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-stone-900">
+                            ヘルプ
+                          </Link>
+                        </li>
+                        <li className="mx-3 my-1.5 border-t border-stone-100" />
                         <li>
                           <button
                             type="button"
                             onClick={handleSignOut}
-                            className="flex w-full items-center px-4 py-2.5 text-sm text-stone-500 transition hover:bg-stone-50 hover:text-stone-700"
+                            className="flex w-full items-center px-4 py-2.5 text-sm text-stone-400 transition hover:bg-red-50 hover:text-red-600"
                           >
                             サインアウト
                           </button>
